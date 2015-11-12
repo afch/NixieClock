@@ -1,3 +1,14 @@
+/*NIXIE CLOCK
+ * ver 07.11.2015
+исправлен глюк с тем что светодиоды на самом деле не отключались длительным нажатием кнопки DOWN
+добавлена возможность проигрывать мелодии!
+ */
+/*NIXIE CLOCK
+ * ver 04.11.2015
+ * Исправлены соответствия пиново и кнопок
+ * добавлена бибилоткеа software tone
+ * Отпускание любой кнопки привод к писку
+ */
 /*
 Nixie Clock 
 ver 14.09.2015
@@ -28,6 +39,7 @@ ver 04.09.2015
 #include <Wire.h>
 #include <ClickButton.h>
 #include <Time.h>
+#include <Tone.h>
 
 int dataPin=11; //Ножка данныз для регистров
 int clockPin=13; //ножка такитрования регистров
@@ -37,9 +49,9 @@ int DHVpin=5; // off/on MAX1771 Driver  Hight Voltage(DHV) 110-220V
 int RedLedPin=9; //выводы МК с ШИМ для управления цветами RGB светодиодов
 int GreenLedPin=6; //выводы МК с ШИМ для управления цветами RGB светодиодов
 int BlueLedPin=3; //выводы МК с ШИМ для управления цветами RGB светодиодов
-int pinSet=A2;
-int pinUp=A1;
-int pinDown=A0;
+int pinSet=A0;
+int pinUp=A2;
+int pinDown=A1;
 int pinBuzzer=2;
 String stringToDisplay="000000";// Строка которая будет выводится на лампы (должна быть длинной 6 цифр, причем пробел обозначает погашенную цифру)
 int menuPosition=0; // 0 - время
@@ -87,6 +99,25 @@ ClickButton upButton(pinUp, LOW, CLICKBTN_PULLUP);
 ClickButton downButton(pinDown, LOW, CLICKBTN_PULLUP);
 ///////////////////
 
+Tone tone1;
+#define isdigit(n) (n >= '0' && n <= '9')
+//char *song = "MissionImp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d";
+//char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
+//char *song="VanessaMae:d=4,o=6,b=70:32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32c7,32b,16c7,32g#,32p,32g#,32p,32f,32p,16f,32c,32p,32c,32p,32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16g,8p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16c";
+//char *song="DasBoot:d=4,o=5,b=100:d#.4,8d4,8c4,8d4,8d#4,8g4,a#.4,8a4,8g4,8a4,8a#4,8d,2f.,p,f.4,8e4,8d4,8e4,8f4,8a4,c.,8b4,8a4,8b4,8c,8e,2g.,2p";
+//char *song="Scatman:d=4,o=5,b=200:8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16a,8p,8e,2p,32p,16f#.6,16p.,16b.,16p.";
+//char *song="Popcorn:d=4,o=5,b=160:8c6,8a#,8c6,8g,8d#,8g,c,8c6,8a#,8c6,8g,8d#,8g,c,8c6,8d6,8d#6,16c6,8d#6,16c6,8d#6,8d6,16a#,8d6,16a#,8d6,8c6,8a#,8g,8a#,c6";
+char *song="WeWishYou:d=4,o=5,b=200:d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,2g,d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,1g,d,g,g,g,2f#,f#,g,f#,e,2d,a,b,8a,8a,8g,8g,d6,d,d,e,a,f#,2g";
+#define OCTAVE_OFFSET 0
+char *p;
+
+int notes[] = { 0,
+NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4, NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4, NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4,
+NOTE_C5, NOTE_CS5, NOTE_D5, NOTE_DS5, NOTE_E5, NOTE_F5, NOTE_FS5, NOTE_G5, NOTE_GS5, NOTE_A5, NOTE_AS5, NOTE_B5,
+NOTE_C6, NOTE_CS6, NOTE_D6, NOTE_DS6, NOTE_E6, NOTE_F6, NOTE_FS6, NOTE_G6, NOTE_GS6, NOTE_A6, NOTE_AS6, NOTE_B6,
+NOTE_C7, NOTE_CS7, NOTE_D7, NOTE_DS7, NOTE_E7, NOTE_F7, NOTE_FS7, NOTE_G7, NOTE_GS7, NOTE_A7, NOTE_AS7, NOTE_B7
+};
+
 // Пробую написать свой класс для активации выхода на заднанное время
 class PulseOut
 {
@@ -124,11 +155,11 @@ void PulseOut::Update()
 
 PulseOut buzz(pinBuzzer, LOW);
 
-int fireforks[]={0,0,1,
-                -1,0,0,
-                 0,1,0,
-                 0,0,-1,
-                 1,0,0,
+int fireforks[]={0,0,1,//1
+                -1,0,0,//2
+                 0,1,0,//3
+                 0,0,-1,//4
+                 1,0,0,//5
                  0,-1,0}; //массив описывающий последовательность изменения цветов 0 - ничего, -1 - уменьшаем значение, +1 - увлеичиваем
 
 uint8_t nomad = B11111110; // это наш бегающий бит
@@ -161,6 +192,12 @@ void setup()
   //setRTCDateTime(23,40,00,25,7,15,1);
   
   Serial.begin(9600);
+  
+    tone1.begin(2);
+//  tone1.play(1000,10000);
+//  delay(1000);
+  p=song;
+  parseSong(p);
   
   pinMode(LEpin, OUTPUT);
   pinMode(HIZpin, OUTPUT);
@@ -202,7 +239,7 @@ void setup()
   //
   digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  //doTest();
+  doTest();
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   getRTCTime();
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
@@ -233,6 +270,7 @@ MAIN Programm
 ***************************************************************************************************************/
 void loop() {
   
+  playmusic();
   //stringToDisplay=updateDisplayString(); // разкоментил 
   //doDynamicIndication();
    //Super_Test(); // ГРИАШ
@@ -262,7 +300,8 @@ void loop() {
     }
   if (setButton.clicks>0) 
     {
-      buzz.Pulse(HIGH,30);
+      //buzz.Pulse(HIGH,30);
+      tone1.play(1000,100);
       enteringEditModeTime=millis();
       menuPosition=menuPosition+1;
       if (menuPosition==2) menuPosition=0; //меню номер 3 для установок будильника - будет реализовано в версии 2.0
@@ -287,7 +326,8 @@ void loop() {
     }
   if (setButton.clicks<0) 
     {
-      buzz.Pulse(HIGH,150);
+      //buzz.Pulse(HIGH,150);
+      tone1.play(1000,100);
       if (!editMode) enteringEditModeTime=millis();
       menuPosition=firstChild[menuPosition];
       editMode=!editMode;
@@ -299,7 +339,8 @@ void loop() {
    
   if (upButton.clicks>0) 
     {
-      buzz.Pulse(HIGH,30);
+      //buzz.Pulse(HIGH,30);
+      tone1.play(1000,100);
       enteringEditModeTime=millis();
       if (editMode==true)
       {
@@ -332,7 +373,8 @@ void loop() {
   
   if (downButton.clicks>0) 
     {
-      buzz.Pulse(HIGH,30);
+      //buzz.Pulse(HIGH,30);
+      tone1.play(1000,100);
       enteringEditModeTime=millis();
       if (editMode==true)
       {
@@ -366,20 +408,22 @@ void loop() {
   {
     if (upButton.clicks<0)
       {
-        buzz.Pulse(HIGH,30);
+        //buzz.Pulse(HIGH,30);
+        tone1.play(1000,100);
         RGBLedsOn=true;
         Serial.println("RGB=on");
       }
     if (downButton.clicks<0)
     {
-      buzz.Pulse(HIGH,30);
+      //buzz.Pulse(HIGH,30);
+      tone1.play(1000,100);
       RGBLedsOn=false;
       Serial.println("RGB=off");
     }
   }
   
     
-  buzz.Update();
+  //buzz.Update();
   static bool updateDateTime=false;
  /* if ((hour()==0) && (minute()==0) && (second()==0))
        {
@@ -439,6 +483,7 @@ void rotateFireWorks()
     analogWrite(RedLedPin,0 );
     analogWrite(GreenLedPin,0);
     analogWrite(BlueLedPin,0); 
+    return;
   }
   RedLight=RedLight+fireforks[rotator*3];
   GreenLight=GreenLight+fireforks[rotator*3+1];
@@ -460,7 +505,7 @@ void doDynamicIndication()
 {
   static byte b=B00000001;
 
-  static  unsigned long lastTimeInterval1Started;
+  static unsigned long lastTimeInterval1Started;
   if ((micros()-lastTimeInterval1Started)>3000)
   {
     lastTimeInterval1Started=micros();
@@ -517,6 +562,15 @@ String updateDisplayString()
 void doTest()
 {
   Serial.println("Start Test");
+
+    analogWrite(RedLedPin,255 );
+    delay(1000);
+    analogWrite(GreenLedPin,255);
+    delay(1000);
+    analogWrite(BlueLedPin,255);
+    delay(1000); 
+
+  
  byte b=B00000001;
  int curTube;
  String testStringArray[]={"000000","111111","222222","333333","444444","555555","666666","777777","888888","999999"};
@@ -661,3 +715,179 @@ bool isValidDate()
     else return true;
   
 }
+
+
+byte default_dur = 4;
+  byte default_oct = 6;
+  int bpm = 63;
+  int num;
+  long wholenote;
+  long duration;
+  byte note;
+  byte scale;
+void parseSong(char *)
+{
+  // Absolutely no error checking in here
+  // format: d=N,o=N,b=NNN:
+  // find the start (skip name, etc)
+
+  while(*p != ':') p++;    // ignore name
+  p++;                     // skip ':'
+
+  // get default duration
+  if(*p == 'd')
+  {
+    p++; p++;              // skip "d="
+    num = 0;
+    while(isdigit(*p))
+    {
+      num = (num * 10) + (*p++ - '0');
+    }
+    if(num > 0) default_dur = num;
+    p++;                   // skip comma
+  }
+
+  Serial.print("ddur: "); Serial.println(default_dur, 10);
+
+  // get default octave
+  if(*p == 'o')
+  {
+    p++; p++;              // skip "o="
+    num = *p++ - '0';
+    if(num >= 3 && num <=7) default_oct = num;
+    p++;                   // skip comma
+  }
+
+  Serial.print("doct: "); Serial.println(default_oct, 10);
+
+  // get BPM
+  if(*p == 'b')
+  {
+    p++; p++;              // skip "b="
+    num = 0;
+    while(isdigit(*p))
+    {
+      num = (num * 10) + (*p++ - '0');
+    }
+    bpm = num;
+    p++;                   // skip colon
+  }
+
+  Serial.print("bpm: "); Serial.println(bpm, 10);
+
+  // BPM usually expresses the number of quarter notes per minute
+  wholenote = (60 * 1000L / bpm) * 4;  // this is the time for whole note (in milliseconds)
+
+  Serial.print("wn: "); Serial.println(wholenote, 10);
+
+}
+
+  // now begin note loop
+  static unsigned long lastTimeNotePlaying=0;
+ void playmusic()
+  {
+     if(*p==0) 
+      {
+        //tone1.stop();
+        return;
+      }
+    if (millis()-lastTimeNotePlaying>duration) 
+        lastTimeNotePlaying=millis();
+      else return;
+    // first, get note duration, if available
+    num = 0;
+    while(isdigit(*p))
+    {
+      num = (num * 10) + (*p++ - '0');
+    }
+    
+    if(num) duration = wholenote / num;
+    else duration = wholenote / default_dur;  // we will need to check if we are a dotted note after
+
+    // now get the note
+    note = 0;
+
+    switch(*p)
+    {
+      case 'c':
+        note = 1;
+        break;
+      case 'd':
+        note = 3;
+        break;
+      case 'e':
+        note = 5;
+        break;
+      case 'f':
+        note = 6;
+        break;
+      case 'g':
+        note = 8;
+        break;
+      case 'a':
+        note = 10;
+        break;
+      case 'b':
+        note = 12;
+        break;
+      case 'p':
+      default:
+        note = 0;
+    }
+    p++;
+
+    // now, get optional '#' sharp
+    if(*p == '#')
+    {
+      note++;
+      p++;
+    }
+
+    // now, get optional '.' dotted note
+    if(*p == '.')
+    {
+      duration += duration/2;
+      p++;
+    }
+  
+    // now, get scale
+    if(isdigit(*p))
+    {
+      scale = *p - '0';
+      p++;
+    }
+    else
+    {
+      scale = default_oct;
+    }
+
+    scale += OCTAVE_OFFSET;
+
+    if(*p == ',')
+      p++;       // skip comma for next note (or we may be at the end)
+
+    // now play the note
+
+    if(note)
+    {
+   /*   Serial.print("Playing: ");
+      Serial.print(scale, 10); Serial.print(' ');
+      Serial.print(note, 10); Serial.print(" (");
+      Serial.print(notes[(scale - 4) * 12 + note], 10);
+      Serial.print(") ");
+      Serial.println(duration, 10);*/
+      tone1.play(notes[(scale - 4) * 12 + note], duration);
+      if (millis()-lastTimeNotePlaying>duration) 
+        lastTimeNotePlaying=millis();
+      else return;
+      //delay(duration);
+     
+      tone1.stop();
+    }
+    else
+    {
+/*      Serial.print("Pausing: ");
+      Serial.println(duration, 10);*/
+      //delay(duration);
+    }
+  }
