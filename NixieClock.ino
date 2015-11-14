@@ -1,4 +1,16 @@
 /*NIXIE CLOCK
+ * ver 15.11.2015
+усовершенстоваван режим 12/24 часа
+добавлены функции IncrementValue и dicrementValue, которые меняют значения как дискретно, так и при удержании кнопки.
+ */
+/*NIXIE CLOCK
+ * ver 14.11.2015
+исправлен глюк с 0 днем и 0 месяцем
+добавлена поддержка 12 часового формата
+добавлено сохранение состояния подсветки в EEPROM
+ */
+
+/*NIXIE CLOCK
  * ver 07.11.2015
 исправлен глюк с тем что светодиоды на самом деле не отключались длительным нажатием кнопки DOWN
 добавлена возможность проигрывать мелодии!
@@ -40,6 +52,7 @@ ver 04.09.2015
 #include <ClickButton.h>
 #include <Time.h>
 #include <Tone.h>
+#include <EEPROM.h>
 
 int dataPin=11; //Ножка данныз для регистров
 int clockPin=13; //ножка такитрования регистров
@@ -74,15 +87,30 @@ byte dotPattern=B00000000; //битовая маска для включения
 byte zero = 0x00; //workaround for issue #527
 int RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, RTC_day_of_week;
 
-//--    ------------0--------1--------2--------3--------4--------5--------6--------7--------8--------9-------10-------11
-//         names:  Time,   Date,   Alarm,   hours,   mintues, seconds,  day,    month,   year,    hour,   minute,   second
-//                  1        1        1        1        1        1        1        1        1        1        1        1
-int parent[12]={    0,       0,       0,       1,       1,       1,       2,       2,       2,       3,       3,       3};
-int firstChild[12]={3,       6,       9,       0,       0,       0,       0,       0,       0,       0,       0,       0};
-int lastChild[12]={ 5,       8,       11,      0,       0,       0,       0,       0,       0,       0,       0,       0};
-int value[12]={     0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0};
-int maxValue[12]={  0,       0,       0,      24,      59,      59,      31,      12,      99,      24,      59,      59};
-byte blinkPattern[12]={B00000000, B00000000, B00000000, B00000011, B00001100, B00110000, B00000011, B00001100, B00110000, B00000011, B00001100, B00110000};
+//--    ------------0--------1--------2-------3--------4--------5--------6--------7--------8--------9--------10-------11-------12-------13
+//         names:  Time,   Date,   Alarm,   12/24    hours,   mintues, seconds,  day,    month,   year,    hour,   minute,   second     HF 
+//                  1        1        1       1        1        1        1        1        1        1        1        1        1        1
+int parent[14]={    0,       0,       0,      0,       1,       1,       1,       2,       2,       2,       3,       3,       3,       4};
+int firstChild[14]={4,       7,       10,     13,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0};
+int lastChild[14]={ 6,       9,       12,     13,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0};
+int value[14]={     0,       0,       0,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       24};
+int maxValue[14]={  0,       0,       0,      0,      23,      59,      59,      31,      12,      99,      23,      59,      59,       24};
+int minValue[14]={  0,       0,       0,      12,     00,      00,      00,       1,       1,      00,      00,      00,      00,       12};
+byte blinkPattern[14]={
+                    B00000000, 
+                             B00000000, 
+                                      B00000000, 
+                                              B00000000, 
+                                                      B00000011, 
+                                                                B00001100, 
+                                                                          B00110000, 
+                                                                                  B00000011, 
+                                                                                           B00001100, 
+                                                                                                    B00110000, 
+                                                                                                             B00000011, 
+                                                                                                                      B00001100, 
+                                                                                                                                B00110000,
+                                                                                                                                        B00001100};
 bool editMode=false;
 
 long downTime=0;
@@ -92,6 +120,8 @@ bool BlinkUp=false;
 bool BlinkDown=false;
 unsigned long enteringEditModeTime=0;
 bool RGBLedsOn=true;
+int RGBLEDsEEPROMAddress=0; 
+int HourFormatEEPROMAddress=1; 
 
 //объявление кнопок
 ClickButton setButton(pinSet, LOW, CLICKBTN_PULLUP);
@@ -192,12 +222,16 @@ void setup()
   //setRTCDateTime(23,40,00,25,7,15,1);
   
   Serial.begin(9600);
-  
+      
+    //EEPROM.write(0,1);
+    if (EEPROM.read(HourFormatEEPROMAddress)!=12) value[13]=24; else value[13]=12;
+    if (EEPROM.read(RGBLEDsEEPROMAddress)!=0) RGBLedsOn=true; else RGBLedsOn=false;
+    Serial.print("EEPROM adress HourFormatEEPROMAddress=");    
+    Serial.println(EEPROM.read(HourFormatEEPROMAddress));  
     tone1.begin(2);
 //  tone1.play(1000,10000);
 //  delay(1000);
-  p=song;
-  parseSong(p);
+  
   
   pinMode(LEpin, OUTPUT);
   pinMode(HIZpin, OUTPUT);
@@ -239,7 +273,7 @@ void setup()
   //
   digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  doTest();
+  //doTest();
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   getRTCTime();
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
@@ -271,6 +305,7 @@ MAIN Programm
 void loop() {
   
   playmusic();
+  
   //stringToDisplay=updateDisplayString(); // разкоментил 
   //doDynamicIndication();
    //Super_Test(); // ГРИАШ
@@ -298,41 +333,58 @@ void loop() {
       menuPosition=firstChild[menuPosition];
       blinkMask=blinkPattern[menuPosition];
     }
-  if (setButton.clicks>0) 
+  if (setButton.clicks>0) //short click
     {
       //buzz.Pulse(HIGH,30);
       tone1.play(1000,100);
       enteringEditModeTime=millis();
       menuPosition=menuPosition+1;
-      if (menuPosition==2) menuPosition=0; //меню номер 3 для установок будильника - будет реализовано в версии 2.0
+      if (menuPosition==2) menuPosition=3; //меню номер 3 для установок будильника - будет реализовано в версии 2.0
+      if (menuPosition==4) menuPosition=0;
+      Serial.print("menuPosition=");
+      Serial.println(menuPosition);
       
       blinkMask=blinkPattern[menuPosition];
       if (lastChild[parent[menuPosition-1]-1]==(menuPosition-1)) 
       {
         if ((parent[menuPosition-1]-1==1) && (!isValidDate())) 
           {
-            menuPosition=6;
+            menuPosition=7;
             return;
           }
         editMode=false;
         menuPosition=parent[menuPosition-1]-1;
-        if (menuPosition==0) setTime(value[3], value[4], value[5], day(), month(), year());
-        if (menuPosition==1) setTime(hour(), minute(), second(),value[6], value[7], 2000+value[8]);
+        if (menuPosition==0) setTime(value[4], value[5], value[6], day(), month(), year());
+        if (menuPosition==1) setTime(hour(), minute(), second(),value[7], value[8], 2000+value[9]);
+        if (menuPosition==3) EEPROM.write(HourFormatEEPROMAddress, value[13]);
         digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
         setRTCDateTime(hour(),minute(),second(),day(),month(),year()%1000,1);
         digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
       }
       value[menuPosition]=extractDigits(blinkMask);
     }
-  if (setButton.clicks<0) 
+  if (setButton.clicks<0) //long click
     {
       //buzz.Pulse(HIGH,150);
       tone1.play(1000,100);
-      if (!editMode) enteringEditModeTime=millis();
+      if (!editMode) 
+      {
+        enteringEditModeTime=millis();
+        if (menuPosition==0) stringToDisplay=PreZero(hour())+PreZero(minute())+PreZero(second()); // это нужно для того чтобы переходить в 24 часовой формат при настройки времени
+      }
       menuPosition=firstChild[menuPosition];
       editMode=!editMode;
       blinkMask=blinkPattern[menuPosition];
+      Serial.print("value before extract=");
+      Serial.println(value[menuPosition]);
+      Serial.print("blinkPattern=");
+      Serial.println(blinkPattern[menuPosition], BIN);
       value[menuPosition]=extractDigits(blinkMask);
+      Serial.print("menuPosition=");
+      Serial.println(menuPosition);
+      Serial.print("value=");
+      Serial.println(value[menuPosition]);
+      
     }
    
   if (upButton.clicks != 0) functionUpButton = upButton.clicks;  
@@ -341,30 +393,24 @@ void loop() {
     {
       //buzz.Pulse(HIGH,30);
       tone1.play(1000,100);
-      enteringEditModeTime=millis();
-      if (editMode==true)
-      {
-      if (value[menuPosition]<maxValue[menuPosition])
-        value[menuPosition]=value[menuPosition]+1;
-        else value[menuPosition]=0;
-      injectDigits(blinkMask, value[menuPosition]);
-      }
+      incrementValue();
     }
   
   if (functionUpButton == -1 && upButton.depressed == true)   
   {
    BlinkUp=false;
-   enteringEditModeTime=millis();
+   /*enteringEditModeTime=millis();*/
    if (editMode==true) 
    {
      if ( (millis() - upTime) > settingDelay)
     {
      upTime = millis();// + settingDelay;
      //Serial.println("DOwn");
-     if (value[menuPosition]<maxValue[menuPosition])
+     /*if (value[menuPosition]<maxValue[menuPosition])
         value[menuPosition]=value[menuPosition]+1;
         else value[menuPosition]=0;
-      injectDigits(blinkMask, value[menuPosition]);
+      injectDigits(blinkMask, value[menuPosition]);*/
+      incrementValue();
     }
    }
   } else BlinkUp=true;
@@ -375,30 +421,25 @@ void loop() {
     {
       //buzz.Pulse(HIGH,30);
       tone1.play(1000,100);
-      enteringEditModeTime=millis();
-      if (editMode==true)
-      {
-      if (value[menuPosition]>0)
-        value[menuPosition]=value[menuPosition]-1;
-        else value[menuPosition]=maxValue[menuPosition];
-      injectDigits(blinkMask, value[menuPosition]);
-      }
+      dicrementValue();
     }
   
   if (functionDownButton == -1 && downButton.depressed == true)   
   {
    BlinkDown=false;
-   enteringEditModeTime=millis(); 
+   /*enteringEditModeTime=millis(); */
    if (editMode==true) 
    {
      if ( (millis() - downTime) > settingDelay)
     {
      downTime = millis();// + settingDelay;
      //Serial.println("DOwn");
-     if (value[menuPosition]>0)
+     /*if (value[menuPosition]>0)
         value[menuPosition]=value[menuPosition]-1;
         else value[menuPosition]=maxValue[menuPosition];
-      injectDigits(blinkMask, value[menuPosition]);
+        if ((menuPosition==13) && value[menuPosition]<12) value[menuPosition]=24;
+      injectDigits(blinkMask, value[menuPosition]);*/
+      dicrementValue();
     }
    }
   } else BlinkDown=true;
@@ -411,6 +452,7 @@ void loop() {
         //buzz.Pulse(HIGH,30);
         tone1.play(1000,100);
         RGBLedsOn=true;
+        EEPROM.write(RGBLEDsEEPROMAddress,1);
         Serial.println("RGB=on");
       }
     if (downButton.clicks<0)
@@ -418,6 +460,7 @@ void loop() {
       //buzz.Pulse(HIGH,30);
       tone1.play(1000,100);
       RGBLedsOn=false;
+      EEPROM.write(RGBLEDsEEPROMAddress,0);
       Serial.println("RGB=off");
     }
   }
@@ -454,21 +497,13 @@ void loop() {
       stringToDisplay="00 00 00";
       dotPattern=B00000000;//выключаем все точки
       break;
+    case 3: 
+      stringToDisplay="00"+String(value[13])+"00";
+      dotPattern=B00000000;//выключаем все точки
+      break;
   }
   
 }
-
-/***************************************************************************************************************
-Grisha Super Test
-***************************************************************************************************************/
-void Super_Test(void)
-{
-  while(1)
-  {
-   doDynamicIndication(); 
-  }
-}
-
 
 String PreZero(int digit)
 {
@@ -554,7 +589,11 @@ String updateDisplayString()
     lastTimeStringWasUpdated=millis();
     //RTC.getTime();
     //Serial.println(stringToDisplay);
-    return PreZero(hour())+PreZero(minute())+PreZero(second());
+    //int hh=hour();
+    //if ((value[13]==12)&&(hour()>12)) hh=hour()-12;
+    if (value[13]==24) return PreZero(hour())+PreZero(minute())+PreZero(second());
+      else return PreZero(hourFormat12())+PreZero(minute())+PreZero(second());
+       
   }
   return stringToDisplay;
 }
@@ -562,6 +601,9 @@ String updateDisplayString()
 void doTest()
 {
   Serial.println("Start Test");
+
+    p=song;
+    parseSong(p);
 
     analogWrite(RedLedPin,255 );
     delay(1000);
@@ -710,8 +752,8 @@ void injectDigits(byte b, int value)
 bool isValidDate()
 {
   int days[12]={31,28,31,30,31,30,31,31,30,31,30,31};
-  if (value[8]%4==0) days[1]=29;
-  if (value[6]>days[value[7]-1]) return false;
+  if (value[7]%4==0) days[1]=29;
+  if (value[7]>days[value[8]-1]) return false;
     else return true;
   
 }
@@ -891,3 +933,35 @@ void parseSong(char *)
       //delay(duration);
     }
   }
+  
+  
+void incrementValue()
+  {
+   enteringEditModeTime=millis();
+      if (editMode==true)
+      {
+      if (value[menuPosition]<maxValue[menuPosition])
+      {
+       if(menuPosition!=13) // 12/24 hour mode menu position
+       value[menuPosition]=value[menuPosition]+1; else value[menuPosition]=value[menuPosition]+12;
+      }
+        else  value[menuPosition]=minValue[menuPosition];
+      Serial.print("value=");  
+      Serial.print(value[menuPosition]);  
+      injectDigits(blinkMask, value[menuPosition]);
+      } 
+  }
+  
+void dicrementValue()
+{
+      enteringEditModeTime=millis();
+      if (editMode==true)
+      {
+      if (value[menuPosition]>minValue[menuPosition])
+        if (menuPosition!=13) value[menuPosition]=value[menuPosition]-1; else value[menuPosition]=value[menuPosition]-12;
+        else value[menuPosition]=maxValue[menuPosition];
+      Serial.print("value=");  
+      Serial.print(value[menuPosition]);  
+      injectDigits(blinkMask, value[menuPosition]);
+      }
+}
