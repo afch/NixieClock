@@ -1,6 +1,12 @@
-const String FirmwareVersion="014500";
-//Format                _X.XX__     
-/*NIXIE CLOCK by GRA & AFCH (fominalec@gmail.com)
+const String FirmwareVersion="014800";
+//Format                _X.XX__    
+/*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
+ * * ver 1.47 07.04.2016
+ * RGB leds test bug fixed
+ * ver 1.46 05.04.2016
+ * leap year bug fixed
+ * ver 1.45 06.01.2016
+ * fixed: 29/02 bug
  * ver 1.45 06.01.2016
 Cleaned: deleted unused code, and other trash like unused comments:)
 Translate: translated all comments from russian to english (as I can:))
@@ -81,9 +87,9 @@ const byte clockPin=13;  //register strobe pin
 const byte LEpin=7; //pin Latch Enabled data accepted while HI level
 const byte HIZpin=8; //pin Z state in registers outputs (while LOW level)
 const byte DHVpin=5; // off/on MAX1771 Driver  Hight Voltage(DHV) 110-220V 
-const byte RedLedPin=9; //MCU WDM output for red LEDs
-const byte GreenLedPin=6; //MCU WDM output for green LEDs
-const byte BlueLedPin=3; //MCU WDM output for blue LEDs
+const byte RedLedPin=6; //MCU WDM output for red LEDs 9-g
+const byte GreenLedPin=3; //MCU WDM output for green LEDs 6-b
+const byte BlueLedPin=9; //MCU WDM output for blue LEDs 3-r
 const byte pinSet=A0;
 const byte pinUp=A2;
 const byte pinDown=A1;
@@ -173,8 +179,8 @@ ClickButton downButton(pinDown, LOW, CLICKBTN_PULLUP);
 
 Tone tone1;
 #define isdigit(n) (n >= '0' && n <= '9')
-char *song = "MissionImp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d";
-//char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
+//char *song = "MissionImp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d";
+char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
 //char *song="VanessaMae:d=4,o=6,b=70:32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32c7,32b,16c7,32g#,32p,32g#,32p,32f,32p,16f,32c,32p,32c,32p,32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16g,8p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16c";
 //char *song="DasBoot:d=4,o=5,b=100:d#.4,8d4,8c4,8d4,8d#4,8g4,a#.4,8a4,8g4,8a4,8a#4,8d,2f.,p,f.4,8e4,8d4,8e4,8f4,8a4,c.,8b4,8a4,8b4,8c,8e,2g.,2p";
 //char *song="Scatman:d=4,o=5,b=200:8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16a,8p,8e,2p,32p,16f#.6,16p.,16b.,16p.";
@@ -566,13 +572,15 @@ void doTest()
     p=song;
     parseSong(p);
    
-    analogWrite(RedLedPin,255 );
+    analogWrite(RedLedPin,255);
     delay(1000);
+    analogWrite(RedLedPin,0);
     analogWrite(GreenLedPin,255);
     delay(1000);
+    analogWrite(GreenLedPin,0);
     analogWrite(BlueLedPin,255);
     delay(1000); 
-
+//while(1);
   
  byte b=B00000001;
  int curTube;
@@ -717,7 +725,7 @@ void injectDigits(byte b, int value)
 bool isValidDate()
 {
   int days[12]={31,28,31,30,31,30,31,31,30,31,30,31};
-  if (value[DateDayIndex]%4==0) days[1]=29;
+  if (value[DateYearIndex]%4==0) days[1]=29;
   if (value[DateDayIndex]>days[value[DateMonthIndex]-1]) return false;
     else return true;
   
