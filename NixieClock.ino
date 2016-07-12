@@ -1,6 +1,8 @@
-const String FirmwareVersion="014800";
+const String FirmwareVersion="014900";
 //Format                _X.XX__    
 /*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
+ * ver 1.49
+ Fixed menu switch bug
  * * ver 1.47 07.04.2016
  * RGB leds test bug fixed
  * ver 1.46 05.04.2016
@@ -155,7 +157,7 @@ byte blinkPattern[15]={
 #define AlarmMinuteIndex 11
 #define AlarmSecondIndex 12
 #define Alarm01          13
-#define hModeValueIndex     14
+#define hModeValueIndex  14
 
 bool editMode=false;
 
@@ -240,7 +242,7 @@ void setup()
     if (EEPROM.read(AlarmTimeEEPROMAddress+1)==255) value[AlarmMinuteIndex]=0; else value[AlarmMinuteIndex]=EEPROM.read(AlarmTimeEEPROMAddress+1);
     if (EEPROM.read(AlarmTimeEEPROMAddress+2)==255) value[AlarmSecondIndex]=0; else value[AlarmSecondIndex]=EEPROM.read(AlarmTimeEEPROMAddress+2);
     if (EEPROM.read(AlarmArmedEEPROMAddress)==255) value[Alarm01]=0; else value[Alarm01]=EEPROM.read(AlarmArmedEEPROMAddress);
-    tone1.begin(2);
+    tone1.begin(pinBuzzer);
     song=parseSong(song);
   
   pinMode(LEpin, OUTPUT);
@@ -347,7 +349,8 @@ void loop() {
       Serial.println(value[menuPosition]);
       
       blinkMask=blinkPattern[menuPosition];
-      if (lastChild[parent[menuPosition-1]-1]==(menuPosition-1)) 
+      //if (lastChild[parent[menuPosition-1]-1]==(menuPosition-1)) 
+      if ((parent[menuPosition-1]!=0) and (lastChild[parent[menuPosition-1]-1]==(menuPosition-1)))
       {
         if ((parent[menuPosition-1]-1==1) && (!isValidDate())) 
           {
