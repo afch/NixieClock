@@ -1,6 +1,10 @@
 const String FirmwareVersion="014900";
 //Format                _X.XX__    
 /*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
+ * ver 1.491 16.07.2016
+ * Added updateDateString function
+ * Fixed PreZero - reduced time execution
+ * reduced flickering in date and alarm modes
  * ver 1.49
  Fixed menu switch bug
  * * ver 1.47 07.04.2016
@@ -204,18 +208,6 @@ int fireforks[]={0,0,1,//1
                  0,0,-1,//4
                  1,0,0,//5
                  0,-1,0}; //array with RGB rules (0 - do nothing, -1 - decrese, +1 - increse
-
-
-int matrix[]={    B11111110, //0
-                  B11111101, //1
-                  B11111011, //2
-                  B11110111, //3
-                  B11101111, //4
-                  B11011111, //5
-                  B10111111, //6
-                  B01111111, //7
-                  B01111111, //8
-                  B01111111};//9
 
 void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w=1);
 
@@ -446,8 +438,6 @@ void loop() {
     }
   }
   
-    
-  static bool updateDateTime=false;
   switch (menuPosition)
   {
     case TimeIndex: //time mode
@@ -456,12 +446,14 @@ void loop() {
        checkAlarmTime();
        break;
     case DateIndex: //date mode
-      stringToDisplay=PreZero(day())+PreZero(month())+PreZero(year()%1000);
+      //stringToDisplay=PreZero(day())+PreZero(month())+PreZero(year()%1000);
+      stringToDisplay=updateDateString();
       dotPattern=B01000000;//turn on all dots
       checkAlarmTime();
       break;
     case AlarmIndex: //alarm mode
-      stringToDisplay=PreZero(value[AlarmHourIndex])+PreZero(value[AlarmMinuteIndex])+PreZero(value[AlarmSecondIndex]);
+    //stringToDisplay="123456";
+    stringToDisplay=PreZero(value[AlarmHourIndex])+PreZero(value[AlarmMinuteIndex])+PreZero(value[AlarmSecondIndex]);
      if (value[Alarm01]==1) dotPattern=B10000000; //turn off upper dots
            else dotPattern=B00000000; //turn off upper dots
       checkAlarmTime();
@@ -476,7 +468,7 @@ void loop() {
 
 String PreZero(int digit)
 {
-  if (digit<10) return String("0")+String(digit);
+  if (digit<10) return "0"+String(digit);
     else return String(digit);
 }
 
@@ -734,7 +726,6 @@ bool isValidDate()
   
 }
 
-
 byte default_dur = 4;
   byte default_oct = 6;
   int bpm = 63;
@@ -791,9 +782,6 @@ char* parseSong(char *p)
   wholenote = (60 * 1000L / bpm) * 4;  // this is the time for whole note (in milliseconds)
   return p;
 }
-
-
-
 
   // now begin note loop
   static unsigned long lastTimeNotePlaying=0;
@@ -946,4 +934,14 @@ void checkAlarmTime()
    }
 }
 
-
+String updateDateString()
+{
+  static unsigned long lastTimeDateUpdate=millis();
+  static String DateString=PreZero(day())+PreZero(month())+PreZero(year()%1000);
+  if ((millis()-lastTimeDateUpdate)>1000) 
+  {
+    lastTimeDateUpdate=millis();
+    return PreZero(day())+PreZero(month())+PreZero(year()%1000); 
+  }
+ return DateString;
+}
