@@ -1,9 +1,11 @@
-const String FirmwareVersion="014900";
+const String FirmwareVersion="015000";
 //Format                _X.XX__    
 /*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
+ * ver 1.50 29.09.2016
+ *Added: LEds color latching (by UP and Down buttons)
  * ver 1.491 16.07.2016
  * Added updateDateString function
- * Fixed PreZero - reduced time execution
+ * Fixed PreZero - redused time execution
  * reduced flickering in date and alarm modes
  * ver 1.49
  Fixed menu switch bug
@@ -176,6 +178,10 @@ byte RGBLEDsEEPROMAddress=0;
 byte HourFormatEEPROMAddress=1;
 byte AlarmTimeEEPROMAddress=2;//3,4,5
 byte AlarmArmedEEPROMAddress=6;   
+byte LEDsLockEEPROMAddress=7;   
+byte LEDsRedValueEEPROMAddress=8; 
+byte LEDsGreenValueEEPROMAddress=9; 
+byte LEDsBlueValueEEPROMAddress=10;
 
 //buttons pins declarations
 ClickButton setButton(pinSet, LOW, CLICKBTN_PULLUP);
@@ -186,11 +192,11 @@ ClickButton downButton(pinDown, LOW, CLICKBTN_PULLUP);
 Tone tone1;
 #define isdigit(n) (n >= '0' && n <= '9')
 //char *song = "MissionImp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d";
-char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
+//char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
 //char *song="VanessaMae:d=4,o=6,b=70:32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32c7,32b,16c7,32g#,32p,32g#,32p,32f,32p,16f,32c,32p,32c,32p,32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16g,8p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16c";
 //char *song="DasBoot:d=4,o=5,b=100:d#.4,8d4,8c4,8d4,8d#4,8g4,a#.4,8a4,8g4,8a4,8a#4,8d,2f.,p,f.4,8e4,8d4,8e4,8f4,8a4,c.,8b4,8a4,8b4,8c,8e,2g.,2p";
 //char *song="Scatman:d=4,o=5,b=200:8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16a,8p,8e,2p,32p,16f#.6,16p.,16b.,16p.";
-//char *song="Popcorn:d=4,o=5,b=160:8c6,8a#,8c6,8g,8d#,8g,c,8c6,8a#,8c6,8g,8d#,8g,c,8c6,8d6,8d#6,16c6,8d#6,16c6,8d#6,8d6,16a#,8d6,16a#,8d6,8c6,8a#,8g,8a#,c6";
+char *song="Popcorn:d=4,o=5,b=160:8c6,8a#,8c6,8g,8d#,8g,c,8c6,8a#,8c6,8g,8d#,8g,c,8c6,8d6,8d#6,16c6,8d#6,16c6,8d#6,8d6,16a#,8d6,16a#,8d6,8c6,8a#,8g,8a#,c6";
 //char *song="WeWishYou:d=4,o=5,b=200:d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,2g,d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,1g,d,g,g,g,2f#,f#,g,f#,e,2d,a,b,8a,8a,8g,8g,d6,d,d,e,a,f#,2g";
 #define OCTAVE_OFFSET 0
 char *p;
@@ -213,6 +219,7 @@ void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w=1);
 
 int functionDownButton=0;
 int functionUpButton=0;
+bool LEDsLock=false;
 
 /*******************************************************************************************************
 Init Programm
@@ -234,17 +241,17 @@ void setup()
     if (EEPROM.read(AlarmTimeEEPROMAddress+1)==255) value[AlarmMinuteIndex]=0; else value[AlarmMinuteIndex]=EEPROM.read(AlarmTimeEEPROMAddress+1);
     if (EEPROM.read(AlarmTimeEEPROMAddress+2)==255) value[AlarmSecondIndex]=0; else value[AlarmSecondIndex]=EEPROM.read(AlarmTimeEEPROMAddress+2);
     if (EEPROM.read(AlarmArmedEEPROMAddress)==255) value[Alarm01]=0; else value[Alarm01]=EEPROM.read(AlarmArmedEEPROMAddress);
+    if (EEPROM.read(LEDsLockEEPROMAddress)==255) LEDsLock=false; else LEDsLock=EEPROM.read(LEDsLockEEPROMAddress);
+    
+  pinMode(RedLedPin, OUTPUT);
+  pinMode(GreenLedPin, OUTPUT);
+  pinMode(BlueLedPin, OUTPUT);
     tone1.begin(pinBuzzer);
     song=parseSong(song);
   
   pinMode(LEpin, OUTPUT);
   pinMode(HIZpin, OUTPUT);
   pinMode(DHVpin, OUTPUT);
-  
-  pinMode(RedLedPin, OUTPUT);
-  pinMode(GreenLedPin, OUTPUT);
-  pinMode(BlueLedPin, OUTPUT);
-  
   
  // SPI setup
 
@@ -277,6 +284,12 @@ void setup()
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   doTest();
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  if (LEDsLock==1)
+    {
+      digitalWrite(RedLedPin, EEPROM.read(LEDsRedValueEEPROMAddress));
+      digitalWrite(GreenLedPin, EEPROM.read(LEDsGreenValueEEPROMAddress));
+      digitalWrite(BlueLedPin, EEPROM.read(LEDsBlueValueEEPROMAddress));
+    }
   getRTCTime();
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
   digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
@@ -309,7 +322,7 @@ void loop() {
   
   if ((millis()-prevTime4FireWorks)>5)
   {
-    rotateFireWorks(); //change color (by 1 step)
+    if (!LEDsLock) rotateFireWorks(); //change color (by 1 step)
     prevTime4FireWorks=millis();
   }
     
@@ -383,6 +396,11 @@ void loop() {
       p=0; //shut off music )))
       tone1.play(1000,100);
       incrementValue();
+      if (!editMode) 
+        {
+          LEDsLock=false;
+          EEPROM.write(LEDsLockEEPROMAddress, 0);
+        }
     }
   
   if (functionUpButton == -1 && upButton.depressed == true)   
@@ -405,6 +423,14 @@ void loop() {
       p=0; //shut off music )))
       tone1.play(1000,100);
       dicrementValue();
+      if (!editMode) 
+      {
+        LEDsLock=true;
+        EEPROM.write(LEDsLockEEPROMAddress, 1);
+        EEPROM.write(LEDsRedValueEEPROMAddress, RedLight);
+        EEPROM.write(LEDsGreenValueEEPROMAddress, GreenLight);
+        EEPROM.write(LEDsBlueValueEEPROMAddress, BlueLight);
+      }
     }
   
   if (functionDownButton == -1 && downButton.depressed == true)   
@@ -589,12 +615,15 @@ int dlay=500;
  bool test=1;
  byte strIndex=0;
  unsigned long startOfTest=millis();
- while (test){
-   
+ bool digitsLock=false;
+ while (test)
+ {
+   if (digitalRead(pinDown)==0) digitsLock=true;
+    if (digitalRead(pinUp)==0) digitsLock=false;
    if ((millis()-startOfTest)>dlay) 
    {
      startOfTest=millis();
-     strIndex=strIndex+1;
+     if (!digitsLock) strIndex=strIndex+1;
      if (strIndex==10) dlay=3000;
      if (strIndex==12) test=0;
    }
