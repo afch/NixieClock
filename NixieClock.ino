@@ -1,6 +1,11 @@
-const String FirmwareVersion="015000";
+const String FirmwareVersion="015100";
 //Format                _X.XX__    
 /*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
+ * //1.5.1 19.10.2016
+//Fixed: Date was not update after setting by user.
+//Fixed: RGB color controls
+//Update to Arduino IDE 1.6.12 (Time.h replaced to TimeLib.h)
+ * 16.10.2016 update for Arduino IDE 1.6.12 (replacing include <time.h> onto <timeLib.h>)
  * ver 1.50 29.09.2016
  *Added: LEds color latching (by UP and Down buttons)
  * ver 1.491 16.07.2016
@@ -86,7 +91,7 @@ Added: doEditBlink()
 #include <SPI.h>
 #include <Wire.h>
 #include <ClickButton.h>
-#include <Time.h>
+#include <TimeLib.h>
 #include <Tone.h>
 #include <EEPROM.h>
 
@@ -286,9 +291,7 @@ void setup()
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   if (LEDsLock==1)
     {
-      digitalWrite(RedLedPin, EEPROM.read(LEDsRedValueEEPROMAddress));
-      digitalWrite(GreenLedPin, EEPROM.read(LEDsGreenValueEEPROMAddress));
-      digitalWrite(BlueLedPin, EEPROM.read(LEDsBlueValueEEPROMAddress));
+      setLEDsFromEEPROM();
     }
   getRTCTime();
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
@@ -322,7 +325,7 @@ void loop() {
   
   if ((millis()-prevTime4FireWorks)>5)
   {
-    if (!LEDsLock) rotateFireWorks(); //change color (by 1 step)
+    rotateFireWorks(); //change color (by 1 step)
     prevTime4FireWorks=millis();
   }
     
@@ -454,6 +457,7 @@ void loop() {
         RGBLedsOn=true;
         EEPROM.write(RGBLEDsEEPROMAddress,1);
         Serial.println("RGB=on");
+        setLEDsFromEEPROM();
       }
     if (downButton.clicks<0)
     {
@@ -507,6 +511,7 @@ void rotateFireWorks()
     analogWrite(BlueLedPin,0); 
     return;
   }
+  if (LEDsLock) return;
   RedLight=RedLight+fireforks[rotator*3];
   GreenLight=GreenLight+fireforks[rotator*3+1];
   BlueLight=BlueLight+fireforks[rotator*3+2];
@@ -970,7 +975,14 @@ String updateDateString()
   if ((millis()-lastTimeDateUpdate)>1000) 
   {
     lastTimeDateUpdate=millis();
-    return PreZero(day())+PreZero(month())+PreZero(year()%1000); 
+    DateString=PreZero(day())+PreZero(month())+PreZero(year()%1000); 
   }
  return DateString;
+}
+
+void setLEDsFromEEPROM()
+{
+  digitalWrite(RedLedPin, EEPROM.read(LEDsRedValueEEPROMAddress));
+  digitalWrite(GreenLedPin, EEPROM.read(LEDsGreenValueEEPROMAddress));
+  digitalWrite(BlueLedPin, EEPROM.read(LEDsBlueValueEEPROMAddress));
 }
