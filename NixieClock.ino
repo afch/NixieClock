@@ -1,6 +1,8 @@
-const String FirmwareVersion="015100";
+ const String FirmwareVersion="015200";
 //Format                _X.XX__    
 /*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
+ * //1.5.2 22.10.2016
+ * Fixed: Mode changes while in edit mode.
  * //1.5.1 19.10.2016
 //Fixed: Date was not update after setting by user.
 //Fixed: RGB color controls
@@ -170,6 +172,8 @@ byte blinkPattern[15]={
 #define Alarm01          13
 #define hModeValueIndex  14
 
+#define modesChangePeriod 10000
+
 bool editMode=false;
 
 long downTime=0;
@@ -225,6 +229,7 @@ void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w=1);
 int functionDownButton=0;
 int functionUpButton=0;
 bool LEDsLock=false;
+bool modeChangedByUser=false;
 
 /*******************************************************************************************************
 Init Programm
@@ -330,7 +335,8 @@ void loop() {
   }
     
   doDynamicIndication();
-  
+
+  if ((menuPosition==TimeIndex) || (modeChangedByUser==false) )modesChanger();
   setButton.Update();
   upButton.Update();
   downButton.Update();
@@ -346,6 +352,7 @@ void loop() {
     }
   if (setButton.clicks>0) //short click
     {
+      modeChangedByUser=true;
       p=0; //shut off music )))
       tone1.play(1000,100);
       enteringEditModeTime=millis();
@@ -396,6 +403,7 @@ void loop() {
    
   if (upButton.clicks>0) 
     {
+      modeChangedByUser=true;
       p=0; //shut off music )))
       tone1.play(1000,100);
       incrementValue();
@@ -423,6 +431,7 @@ void loop() {
   
   if (downButton.clicks>0) 
     {
+      modeChangedByUser=true;
       p=0; //shut off music )))
       tone1.play(1000,100);
       dicrementValue();
@@ -986,3 +995,34 @@ void setLEDsFromEEPROM()
   digitalWrite(GreenLedPin, EEPROM.read(LEDsGreenValueEEPROMAddress));
   digitalWrite(BlueLedPin, EEPROM.read(LEDsBlueValueEEPROMAddress));
 }
+void modesChanger()
+{
+  if (editMode==true) return;
+  static unsigned long lastTimeModeChanged=millis();
+  if ((millis()-lastTimeModeChanged)>modesChangePeriod) 
+  {
+    lastTimeModeChanged=millis();
+    if (menuPosition==TimeIndex) menuPosition=DateIndex;
+      else menuPosition=TimeIndex;
+    if (modeChangedByUser==true) 
+    {
+      menuPosition=TimeIndex;
+    }
+    modeChangedByUser=false;
+  }
+}
+
+String antiPoisoning(String newString, byte pattern)
+{
+ static bool transactionInProgress=false;
+ static byte intermediateDigits[6];
+ if (!transactionInProgress) 
+ {
+  transactionInProgress=true;
+  for (int i=0; i<6;i++) 
+    {
+      intermediateDigits[i]=int(stringToDisplay.charAt(i));
+    }
+ }
+}
+
