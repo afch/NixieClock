@@ -1,8 +1,14 @@
- const String FirmwareVersion="015200";
-//Format                _X.XX__    
+const String FirmwareVersion="015400";
+//Format                     _X.XX__    
 /*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
- * //1.5.2 22.10.2016
- * Fixed: Mode changes while in edit mode.
+ * 1.5.4 19.11.2016
+ * Added: More precision time reading while clock is turning on
+ * Added: different time intervals for Time and Date modes
+ * Fixed: increase lag at each time when clock start
+ * 1.5.3 23.10.2016 
+ * Added: Antipoisoning effect 
+ * 1.5.2 22.10.2016
+ * Fixed: changing modes while in edit mode
  * //1.5.1 19.10.2016
 //Fixed: Date was not update after setting by user.
 //Fixed: RGB color controls
@@ -109,6 +115,8 @@ const byte pinSet=A0;
 const byte pinUp=A2;
 const byte pinDown=A1;
 const byte pinBuzzer=2;
+#define RTC_Deviation 5
+
 String stringToDisplay="000000";// Conten of this string will be displayed on tubes (must be 6 chars length)
 int menuPosition=0; // 0 - time
                     // 1 - date
@@ -172,7 +180,9 @@ byte blinkPattern[15]={
 #define Alarm01          13
 #define hModeValueIndex  14
 
-#define modesChangePeriod 10000
+#define timeModePeriod 60000
+#define dateModePeriod 5000
+long modesChangePeriod=timeModePeriod;
 
 bool editMode=false;
 
@@ -192,6 +202,8 @@ byte LEDsRedValueEEPROMAddress=8;
 byte LEDsGreenValueEEPROMAddress=9; 
 byte LEDsBlueValueEEPROMAddress=10;
 
+long RTC_Correction=abs(RTC_Deviation)*1000/144;
+
 //buttons pins declarations
 ClickButton setButton(pinSet, LOW, CLICKBTN_PULLUP);
 ClickButton upButton(pinUp, LOW, CLICKBTN_PULLUP);
@@ -203,9 +215,9 @@ Tone tone1;
 //char *song = "MissionImp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d";
 //char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
 //char *song="VanessaMae:d=4,o=6,b=70:32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32c7,32b,16c7,32g#,32p,32g#,32p,32f,32p,16f,32c,32p,32c,32p,32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16g,8p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16c";
-//char *song="DasBoot:d=4,o=5,b=100:d#.4,8d4,8c4,8d4,8d#4,8g4,a#.4,8a4,8g4,8a4,8a#4,8d,2f.,p,f.4,8e4,8d4,8e4,8f4,8a4,c.,8b4,8a4,8b4,8c,8e,2g.,2p";
+char *song="DasBoot:d=4,o=5,b=100:d#.4,8d4,8c4,8d4,8d#4,8g4,a#.4,8a4,8g4,8a4,8a#4,8d,2f.,p,f.4,8e4,8d4,8e4,8f4,8a4,c.,8b4,8a4,8b4,8c,8e,2g.,2p";
 //char *song="Scatman:d=4,o=5,b=200:8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16a,8p,8e,2p,32p,16f#.6,16p.,16b.,16p.";
-char *song="Popcorn:d=4,o=5,b=160:8c6,8a#,8c6,8g,8d#,8g,c,8c6,8a#,8c6,8g,8d#,8g,c,8c6,8d6,8d#6,16c6,8d#6,16c6,8d#6,8d6,16a#,8d6,16a#,8d6,8c6,8a#,8g,8a#,c6";
+//char *song="Popcorn:d=4,o=5,b=160:8c6,8a#,8c6,8g,8d#,8g,c,8c6,8a#,8c6,8g,8d#,8g,c,8c6,8d6,8d#6,16c6,8d#6,16c6,8d#6,8d6,16a#,8d6,16a#,8d6,8c6,8a#,8g,8a#,c6";
 //char *song="WeWishYou:d=4,o=5,b=200:d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,2g,d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,1g,d,g,g,g,2f#,f#,g,f#,e,2d,a,b,8a,8a,8g,8g,d6,d,d,e,a,f#,2g";
 #define OCTAVE_OFFSET 0
 char *p;
@@ -231,6 +243,7 @@ int functionUpButton=0;
 bool LEDsLock=false;
 bool modeChangedByUser=false;
 
+bool transactionInProgress=false; //antipoisoning transaction 
 /*******************************************************************************************************
 Init Programm
 *******************************************************************************************************/
@@ -242,7 +255,7 @@ void setup()
   Wire.begin();
   //setRTCDateTime(23,40,00,25,7,15,1);
   
-  Serial.begin(9600);
+  Serial.begin(115200);
       
 
     if (EEPROM.read(HourFormatEEPROMAddress)!=12) value[hModeValueIndex]=24; else value[hModeValueIndex]=12;
@@ -298,10 +311,16 @@ void setup()
     {
       setLEDsFromEEPROM();
     }
-  getRTCTime();
-  setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
   digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
-  setRTCDateTime(RTC_hours,RTC_minutes,RTC_seconds,RTC_day,RTC_month,RTC_year,1); //записываем только что считанное время в RTC чтобы запустить новую микросхему
+  getRTCTime();
+  byte prevSeconds=RTC_seconds;
+  while(prevSeconds==RTC_seconds)
+  {
+    getRTCTime();
+    //Serial.println(RTC_seconds);
+  }
+  setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
+  //setRTCDateTime(RTC_hours,RTC_minutes,RTC_seconds,RTC_day,RTC_month,RTC_year,1); //записываем только что считанное время в RTC чтобы запустить новую микросхему
   digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
   //p=song;
 }
@@ -333,17 +352,17 @@ void loop() {
     rotateFireWorks(); //change color (by 1 step)
     prevTime4FireWorks=millis();
   }
-    
-  doDynamicIndication();
 
   if ((menuPosition==TimeIndex) || (modeChangedByUser==false) )modesChanger();
+  doDynamicIndication();
+
   setButton.Update();
   upButton.Update();
   downButton.Update();
   if (editMode==false) 
     {
       blinkMask=B00000000;
-      
+      RTC_Adjusting();
     } else if ((millis()-enteringEditModeTime)>60000) 
     {
       editMode=false;
@@ -480,13 +499,13 @@ void loop() {
   switch (menuPosition)
   {
     case TimeIndex: //time mode
-       stringToDisplay=updateDisplayString();
+       if (!transactionInProgress) stringToDisplay=updateDisplayString();
        doDotBlink();
        checkAlarmTime();
        break;
     case DateIndex: //date mode
       //stringToDisplay=PreZero(day())+PreZero(month())+PreZero(year()%1000);
-      stringToDisplay=updateDateString();
+      if (!transactionInProgress) stringToDisplay=updateDateString();
       dotPattern=B01000000;//turn on all dots
       checkAlarmTime();
       break;
@@ -588,10 +607,15 @@ String updateDisplayString()
   if ((millis()-lastTimeStringWasUpdated)>1000)
   {
     lastTimeStringWasUpdated=millis();
-    if (value[hModeValueIndex]==24) return PreZero(hour())+PreZero(minute())+PreZero(second());
-      else return PreZero(hourFormat12())+PreZero(minute())+PreZero(second());
+    return getTimeNow();
   }
   return stringToDisplay;
+}
+
+String getTimeNow()
+{
+  if (value[hModeValueIndex]==24) return PreZero(hour())+PreZero(minute())+PreZero(second());
+      else return PreZero(hourFormat12())+PreZero(minute())+PreZero(second());
 }
 
 void doTest()
@@ -602,7 +626,7 @@ void doTest()
   int adc=analogRead(A3);
   float Uinput=4.6*(5.0*adc)/1024.0+0.7;
   Serial.print(F("U input="));
-  Serial.print(Uinput);
+  Serial.println(Uinput);
   
     p=song;
     parseSong(p);
@@ -999,30 +1023,97 @@ void modesChanger()
 {
   if (editMode==true) return;
   static unsigned long lastTimeModeChanged=millis();
+  static unsigned long lastTimeAntiPoisoningIterate=millis();
   if ((millis()-lastTimeModeChanged)>modesChangePeriod) 
   {
     lastTimeModeChanged=millis();
-    if (menuPosition==TimeIndex) menuPosition=DateIndex;
-      else menuPosition=TimeIndex;
+    if (menuPosition==TimeIndex) {menuPosition=DateIndex; modesChangePeriod=dateModePeriod;}
+      else {menuPosition=TimeIndex; modesChangePeriod=timeModePeriod;}
     if (modeChangedByUser==true) 
     {
       menuPosition=TimeIndex;
     }
     modeChangedByUser=false;
   }
+  if ((millis()-lastTimeModeChanged)<2000) 
+  {
+    if ((millis()-lastTimeAntiPoisoningIterate)>100)  
+    {
+      lastTimeAntiPoisoningIterate=millis();
+      if (menuPosition==TimeIndex)
+        stringToDisplay=antiPoisoning2(PreZero(day())+PreZero(month())+PreZero(year()%1000), getTimeNow());
+      else stringToDisplay=antiPoisoning2(getTimeNow(), PreZero(day())+PreZero(month())+PreZero(year()%1000));
+     // Serial.println("StrTDInToModeChng="+stringToDisplay);
+    }
+  } else transactionInProgress=false;
 }
 
-String antiPoisoning(String newString, byte pattern)
+String antiPoisoning2(String fromStr, String toStr)
 {
- static bool transactionInProgress=false;
- static byte intermediateDigits[6];
- if (!transactionInProgress) 
- {
-  transactionInProgress=true;
-  for (int i=0; i<6;i++) 
+  //static bool transactionInProgress=false;
+  //byte fromDigits[6];
+  static byte toDigits[6];
+  static byte currentDigits[6];
+  static byte iterationCounter=0;
+  if (!transactionInProgress) 
+  {
+    transactionInProgress=true;
+    for (int i=0; i<6; i++)
     {
-      intermediateDigits[i]=int(stringToDisplay.charAt(i));
+      currentDigits[i]=fromStr.substring(i, i+1).toInt();
+      toDigits[i]=toStr.substring(i, i+1).toInt();
     }
- }
+  }
+  for (int i=0; i<6; i++)
+  {
+    if (iterationCounter<10) currentDigits[i]++;
+      else if (currentDigits[i]!=toDigits[i]) currentDigits[i]++;
+    if (currentDigits[i]==10) currentDigits[i]=0;
+  }
+  iterationCounter++;
+  if (iterationCounter==20)
+  {
+    iterationCounter=0;
+    transactionInProgress=false;
+  }
+  String tmpStr;
+  for (int i=0; i<6; i++)
+    tmpStr+=currentDigits[i];
+  return tmpStr;
+}
+
+void RTC_Adjusting()
+{
+static bool bRTCNeedToBeAdjusted=true;
+static bool bRTCWasAdjusted=true;
+static unsigned long adjustingMoment=0;
+if (minute()%10!=0) bRTCNeedToBeAdjusted=true;
+if ((minute()%10==0) && (bRTCNeedToBeAdjusted==true)) 
+  {
+    //MakeRTCAdjust();
+    if (RTC_Deviation>0) adjustingMoment=millis()+1000-RTC_Correction;
+      else adjustingMoment=millis()+RTC_Correction;
+    bRTCNeedToBeAdjusted=false;
+    bRTCWasAdjusted=false;
+   // Serial.println("%10");
+  }
+if ((millis()>adjustingMoment) && (bRTCWasAdjusted==false))
+  {
+    bRTCWasAdjusted=true;
+    if (RTC_Deviation>0) 
+      {
+        getRTCTime(); 
+        setRTCDateTime(RTC_hours,RTC_minutes,RTC_seconds,RTC_day,RTC_month,RTC_year,1);
+        setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
+        //Serial.println("-");
+      }
+      else 
+      {
+        getRTCTime();
+        setRTCDateTime(RTC_hours,RTC_minutes,RTC_seconds+1,RTC_day,RTC_month,RTC_year,1);
+        setTime(RTC_hours, RTC_minutes, RTC_seconds+1, RTC_day, RTC_month, RTC_year);
+        //Serial.println("+");
+      }
+  }
 }
 
