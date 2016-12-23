@@ -1,97 +1,15 @@
-const String FirmwareVersion="015300";
-//Format                     _X.XX__    
-/*NIXIE CLOCK NCM105 by GRA & AFCH (fominalec@gmail.com)
- * 1.5.3 23.10.2016 
- * Added: Antipoisoning effect 
- * 1.5.2 22.10.2016
- * Fixed: changing modes while in edit mode
- * //1.5.1 19.10.2016
-//Fixed: Date was not update after setting by user.
+const String FirmwareVersion="010200";
+//Format                _X.XX__    
+//NIXIE CLOCK SHIELD NCS314 by GRA & AFCH (fominalec@gmail.com)
+//1.02 17.10.2016
 //Fixed: RGB color controls
 //Update to Arduino IDE 1.6.12 (Time.h replaced to TimeLib.h)
- * 16.10.2016 update for Arduino IDE 1.6.12 (replacing include <time.h> onto <timeLib.h>)
- * ver 1.50 29.09.2016
- *Added: LEds color latching (by UP and Down buttons)
- * ver 1.491 16.07.2016
- * Added updateDateString function
- * Fixed PreZero - redused time execution
- * reduced flickering in date and alarm modes
- * ver 1.49
- Fixed menu switch bug
- * * ver 1.47 07.04.2016
- * RGB leds test bug fixed
- * ver 1.46 05.04.2016
- * leap year bug fixed
- * ver 1.45 06.01.2016
- * fixed: 29/02 bug
- * ver 1.45 06.01.2016
-Cleaned: deleted unused code, and other trash like unused comments:)
-Translate: translated all comments from russian to english (as I can:))
-
- * ver 1.44 22.11.2015
-Added: input voltage mesurement during self test
- */
-/*NIXIE CLOCK
- * ver 1.43 21.11.2015
-Refactored: IncrementValue() and dicrementValue()
-Added: ExtractDigits() return 1 if error accured 
-Refactored: ParseMusic and PlayMusic
-Added: checkAlarm()
-Added: any buttons turning off alarm sound
-Added: display software version in the end of self test
- */
-/*NIXIE CLOCK
- * ver 15.11.2015
-Added: improved 12/24 hors mode
-Added: IncrementValue() и dicrementValue() they change value as step by step or continiusly
- */
-/*NIXIE CLOCK
- * ver 14.11.2015
-Fixed: zero day and zero month
-Added: 12/24 hour mode
-Added: backlight state saved to EEPROM
- */
-
-/*NIXIE CLOCK
- * ver 07.11.2015
-Fixed: turn off and on backlight while Down or UP buttons is pressed
-Added: Musical abilities
-
- */
-/*NIXIE CLOCK
- * ver 04.11.2015
-Changed: declarations of buttons pins
-Added: software tone labrary
-Added: beep sound after releasing button
- */
-/*
-Nixie Clock 
-ver 14.09.2015
-Added: auto exit from edit mode after 1 minute
-Added: while autoincrement blinking is disabled
-Added: Holding Up or Down button turn on or off backlight
-
-ver 13.09.2015
-Added: time and date can be chnged by buttons :)
-Added: checking if date is valid
-Refactoring: displaing string by char
-Refactoring: auto increment/dicrement
-
-*/
-
-
-/*
-Nixie Clock 
-ver 10.09.2015
-Refactoring: doEditBlink() (blink by chars)
-Added: menu:)
-*/
-/*
-Nixie Clock 
-ver 04.09.2015
-Added: doEditBlink()
-*/
-
+//1.01
+//Added RGB LEDs lock(by UP and Down Buttons)
+//Added Down and Up buttons pause and resume self testing
+//25.09.2016 update to HW ver 1.1
+//25.05.2016
+ 
 #include <SPI.h>
 #include <Wire.h>
 #include <ClickButton.h>
@@ -99,18 +17,19 @@ Added: doEditBlink()
 #include <Tone.h>
 #include <EEPROM.h>
 
-const byte dataPin=11;  //register data pin
-const byte clockPin=13;  //register strobe pin
 const byte LEpin=7; //pin Latch Enabled data accepted while HI level
-const byte HIZpin=8; //pin Z state in registers outputs (while LOW level)
 const byte DHVpin=5; // off/on MAX1771 Driver  Hight Voltage(DHV) 110-220V 
-const byte RedLedPin=6; //MCU WDM output for red LEDs 9-g
-const byte GreenLedPin=3; //MCU WDM output for green LEDs 6-b
-const byte BlueLedPin=9; //MCU WDM output for blue LEDs 3-r
+const byte RedLedPin=9; //MCU WDM output for red LEDs 9-g
+const byte GreenLedPin=6; //MCU WDM output for green LEDs 6-b
+const byte BlueLedPin=3; //MCU WDM output for blue LEDs 3-r
 const byte pinSet=A0;
 const byte pinUp=A2;
 const byte pinDown=A1;
 const byte pinBuzzer=2;
+const byte pinUpperDots=12; //HIGH value light a dots
+const byte pinLowerDots=8;  //HIGH value light a dots
+const word fpsLimit=16666; // 1/60*1.000.000 //limit maximum refresh rate on 60 fps
+
 String stringToDisplay="000000";// Conten of this string will be displayed on tubes (must be 6 chars length)
 int menuPosition=0; // 0 - time
                     // 1 - date
@@ -119,11 +38,8 @@ int menuPosition=0; // 0 - time
                     
 byte blinkMask=B00000000; //bit mask for blinkin digits (1 - blink, 0 - constant light)
 
-
-
-//-------------------------0-------1----------2----------3---------4--------5---------6---------7---------8---------9-----
-byte lowBytesArray[]={B11111110,B11111101,B11111011,B11110111,B11101111,B11011111,B10111111,B01111111,B11111111,B11111111};
-byte highBytesArray[]={B11111111,B11111111,B11111111,B11111111,B11111111,B11111111,B11111111,B11111111,B11111110,B11111101};
+//                      0      1      2      3      4      5      6      7      8       9
+word SymbolArray[10]={65534, 65533, 65531, 65527, 65519, 65503, 65471, 65407, 65279, 65023};
 
 byte dotPattern=B00000000; //bit mask for separeting dots 
                           //B00000000 - turn off up and down dots 
@@ -158,7 +74,7 @@ byte blinkPattern[15]={
                                                                                                                                 B00110000,
                                                                                                                                         B11000000,  
                                                                                                                                             B00001100};
-                                                                                                                                            #define TimeIndex        0 
+#define TimeIndex        0 
 #define DateIndex        1 
 #define AlarmIndex       2 
 #define hModeIndex       3 
@@ -174,8 +90,6 @@ byte blinkPattern[15]={
 #define Alarm01          13
 #define hModeValueIndex  14
 
-#define modesChangePeriod 30000
-
 bool editMode=false;
 
 long downTime=0;
@@ -188,11 +102,11 @@ bool RGBLedsOn=true;
 byte RGBLEDsEEPROMAddress=0; 
 byte HourFormatEEPROMAddress=1;
 byte AlarmTimeEEPROMAddress=2;//3,4,5
-byte AlarmArmedEEPROMAddress=6;   
+byte AlarmArmedEEPROMAddress=6;
 byte LEDsLockEEPROMAddress=7;   
 byte LEDsRedValueEEPROMAddress=8; 
 byte LEDsGreenValueEEPROMAddress=9; 
-byte LEDsBlueValueEEPROMAddress=10;
+byte LEDsBlueValueEEPROMAddress=10;   
 
 //buttons pins declarations
 ClickButton setButton(pinSet, LOW, CLICKBTN_PULLUP);
@@ -203,11 +117,11 @@ ClickButton downButton(pinDown, LOW, CLICKBTN_PULLUP);
 Tone tone1;
 #define isdigit(n) (n >= '0' && n <= '9')
 //char *song = "MissionImp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d";
-//char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
+char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
 //char *song="VanessaMae:d=4,o=6,b=70:32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32c7,32b,16c7,32g#,32p,32g#,32p,32f,32p,16f,32c,32p,32c,32p,32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16g,8p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16c";
 //char *song="DasBoot:d=4,o=5,b=100:d#.4,8d4,8c4,8d4,8d#4,8g4,a#.4,8a4,8g4,8a4,8a#4,8d,2f.,p,f.4,8e4,8d4,8e4,8f4,8a4,c.,8b4,8a4,8b4,8c,8e,2g.,2p";
 //char *song="Scatman:d=4,o=5,b=200:8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16a,8p,8e,2p,32p,16f#.6,16p.,16b.,16p.";
-char *song="Popcorn:d=4,o=5,b=160:8c6,8a#,8c6,8g,8d#,8g,c,8c6,8a#,8c6,8g,8d#,8g,c,8c6,8d6,8d#6,16c6,8d#6,16c6,8d#6,8d6,16a#,8d6,16a#,8d6,8c6,8a#,8g,8a#,c6";
+//char *song="Popcorn:d=4,o=5,b=160:8c6,8a#,8c6,8g,8d#,8g,c,8c6,8a#,8c6,8g,8d#,8g,c,8c6,8d6,8d#6,16c6,8d#6,16c6,8d#6,8d6,16a#,8d6,16a#,8d6,8c6,8a#,8g,8a#,c6";
 //char *song="WeWishYou:d=4,o=5,b=200:d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,2g,d,g,8g,8a,8g,8f#,e,e,e,a,8a,8b,8a,8g,f#,d,d,b,8b,8c6,8b,8a,g,e,d,e,a,f#,1g,d,g,g,g,2f#,f#,g,f#,e,2d,a,b,8a,8a,8g,8g,d6,d,d,e,a,f#,2g";
 #define OCTAVE_OFFSET 0
 char *p;
@@ -231,23 +145,19 @@ void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w=1);
 int functionDownButton=0;
 int functionUpButton=0;
 bool LEDsLock=false;
-bool modeChangedByUser=false;
 
-bool transactionInProgress=false; //antipoisoning transaction 
 /*******************************************************************************************************
 Init Programm
 *******************************************************************************************************/
 void setup() 
 {
   digitalWrite(DHVpin, LOW);    // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
-  digitalWrite(HIZpin, LOW);    // High impedence outputs
-  
+   
   Wire.begin();
   //setRTCDateTime(23,40,00,25,7,15,1);
   
   Serial.begin(115200);
-      
-
+  
     if (EEPROM.read(HourFormatEEPROMAddress)!=12) value[hModeValueIndex]=24; else value[hModeValueIndex]=12;
     if (EEPROM.read(RGBLEDsEEPROMAddress)!=0) RGBLedsOn=true; else RGBLedsOn=false;
     if (EEPROM.read(AlarmTimeEEPROMAddress)==255) value[AlarmHourIndex]=0; else value[AlarmHourIndex]=EEPROM.read(AlarmTimeEEPROMAddress);
@@ -255,15 +165,17 @@ void setup()
     if (EEPROM.read(AlarmTimeEEPROMAddress+2)==255) value[AlarmSecondIndex]=0; else value[AlarmSecondIndex]=EEPROM.read(AlarmTimeEEPROMAddress+2);
     if (EEPROM.read(AlarmArmedEEPROMAddress)==255) value[Alarm01]=0; else value[Alarm01]=EEPROM.read(AlarmArmedEEPROMAddress);
     if (EEPROM.read(LEDsLockEEPROMAddress)==255) LEDsLock=false; else LEDsLock=EEPROM.read(LEDsLockEEPROMAddress);
+    Serial.print("led lock=");
+    Serial.println(LEDsLock);
     
   pinMode(RedLedPin, OUTPUT);
   pinMode(GreenLedPin, OUTPUT);
   pinMode(BlueLedPin, OUTPUT);
-    tone1.begin(pinBuzzer);
-    song=parseSong(song);
+    
+  tone1.begin(pinBuzzer);
+  song=parseSong(song);
   
   pinMode(LEpin, OUTPUT);
-  pinMode(HIZpin, OUTPUT);
   pinMode(DHVpin, OUTPUT);
   
  // SPI setup
@@ -293,7 +205,7 @@ void setup()
   downButton.longClickTime  = 2000; // time until "held-down clicks" register
   
   //
-  digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
+  //digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   doTest();
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -336,10 +248,9 @@ void loop() {
     rotateFireWorks(); //change color (by 1 step)
     prevTime4FireWorks=millis();
   }
-
-  if ((menuPosition==TimeIndex) || (modeChangedByUser==false) )modesChanger();
-  doDynamicIndication();
-
+    
+  doIndication();
+  
   setButton.Update();
   upButton.Update();
   downButton.Update();
@@ -355,7 +266,6 @@ void loop() {
     }
   if (setButton.clicks>0) //short click
     {
-      modeChangedByUser=true;
       p=0; //shut off music )))
       tone1.play(1000,100);
       enteringEditModeTime=millis();
@@ -367,8 +277,7 @@ void loop() {
       Serial.println(value[menuPosition]);
       
       blinkMask=blinkPattern[menuPosition];
-      //if (lastChild[parent[menuPosition-1]-1]==(menuPosition-1)) 
-      if ((parent[menuPosition-1]!=0) and (lastChild[parent[menuPosition-1]-1]==(menuPosition-1)))
+      if ((parent[menuPosition-1]!=0) and (lastChild[parent[menuPosition-1]-1]==(menuPosition-1))) 
       {
         if ((parent[menuPosition-1]-1==1) && (!isValidDate())) 
           {
@@ -396,7 +305,7 @@ void loop() {
         if (menuPosition==TimeIndex) stringToDisplay=PreZero(hour())+PreZero(minute())+PreZero(second()); //temporary enabled 24 hour format while settings
       }
       menuPosition=firstChild[menuPosition];
-      if (menuPosition==AlarmHourIndex) {value[Alarm01]=1; dotPattern=B10000000;}
+      if (menuPosition==AlarmHourIndex) {value[Alarm01]=1; /*digitalWrite(pinUpperDots, HIGH);*/dotPattern=B10000000;}
       editMode=!editMode;
       blinkMask=blinkPattern[menuPosition];
       value[menuPosition]=extractDigits(blinkMask);
@@ -406,7 +315,6 @@ void loop() {
    
   if (upButton.clicks>0) 
     {
-      modeChangedByUser=true;
       p=0; //shut off music )))
       tone1.play(1000,100);
       incrementValue();
@@ -434,7 +342,6 @@ void loop() {
   
   if (downButton.clicks>0) 
     {
-      modeChangedByUser=true;
       p=0; //shut off music )))
       tone1.play(1000,100);
       dicrementValue();
@@ -480,29 +387,38 @@ void loop() {
     }
   }
   
+    
+  static bool updateDateTime=false;
   switch (menuPosition)
   {
     case TimeIndex: //time mode
-       if (!transactionInProgress) stringToDisplay=updateDisplayString();
+       stringToDisplay=updateDisplayString();
        doDotBlink();
        checkAlarmTime();
        break;
     case DateIndex: //date mode
-      //stringToDisplay=PreZero(day())+PreZero(month())+PreZero(year()%1000);
-      if (!transactionInProgress) stringToDisplay=updateDateString();
-      dotPattern=B01000000;//turn on all dots
+      stringToDisplay=PreZero(day())+PreZero(month())+PreZero(year()%1000);
+      dotPattern=B01000000;//turn on lower dots
+      /*digitalWrite(pinUpperDots, LOW);
+      digitalWrite(pinLowerDots, HIGH);*/
       checkAlarmTime();
       break;
     case AlarmIndex: //alarm mode
-    //stringToDisplay="123456";
-    stringToDisplay=PreZero(value[AlarmHourIndex])+PreZero(value[AlarmMinuteIndex])+PreZero(value[AlarmSecondIndex]);
-     if (value[Alarm01]==1) dotPattern=B10000000; //turn off upper dots
-           else dotPattern=B00000000; //turn off upper dots
+      stringToDisplay=PreZero(value[AlarmHourIndex])+PreZero(value[AlarmMinuteIndex])+PreZero(value[AlarmSecondIndex]);
+     if (value[Alarm01]==1) /*digitalWrite(pinUpperDots, HIGH);*/ dotPattern=B10000000; //turn on upper dots
+           else 
+           {
+             /*digitalWrite(pinUpperDots, LOW);
+             digitalWrite(pinLowerDots, LOW);*/
+             dotPattern=B00000000; //turn off upper dots
+           }
       checkAlarmTime();
       break;
     case hModeIndex: //12/24 hours mode
       stringToDisplay="00"+String(value[hModeValueIndex])+"00";
       dotPattern=B00000000;//turn off all dots
+      /*digitalWrite(pinUpperDots, LOW);
+      digitalWrite(pinLowerDots, LOW);*/
       checkAlarmTime();
       break;
   }
@@ -510,7 +426,7 @@ void loop() {
 
 String PreZero(int digit)
 {
-  if (digit<10) return "0"+String(digit);
+  if (digit<10) return String("0")+String(digit);
     else return String(digit);
 }
 
@@ -540,30 +456,77 @@ void rotateFireWorks()
 }
 
 
-void doDynamicIndication()
+void doIndication()
 {
-  static byte b=B00000001;
-
+  
   static unsigned long lastTimeInterval1Started;
-  if ((micros()-lastTimeInterval1Started)>3000)
-  {
-    lastTimeInterval1Started=micros();
+  if ((micros()-lastTimeInterval1Started)<fpsLimit) return;
+  //if (menuPosition==TimeIndex) doDotBlink();
+  lastTimeInterval1Started=micros();
     
-    digitalWrite(HIZpin, LOW);    // High impedence outputs
-    digitalWrite(LEpin, HIGH);    // allow data input (Transparent mode)
+  digitalWrite(LEpin, LOW);    // allow data input (Transparent mode)
    
-    int curTube=int(log(b)/log(2));
-   
+  /* 
     SPI.transfer((b|dotPattern) & doEditBlink()); // anode
     SPI.transfer(highBytesArray[stringToDisplay.substring(curTube,curTube+1).toInt()]);
     SPI.transfer(lowBytesArray[stringToDisplay.substring(curTube,curTube+1).toInt()]);
-      
-    digitalWrite(LEpin, LOW);     // latching data 
-    digitalWrite(HIZpin, HIGH);   // Outputs on
+  */
+  //word SymbolArray2[10]={65534, 65023, 65279, 65407, 65471, 65503, 65519, 65527, 65531, 65533}; // used only for shiled with HW ver 1.0 //it has hardware bug in wiring
+  
+  unsigned long long Var64=0;
+  unsigned long long tmpVar64=0;
+  
+  long digits=stringToDisplay.toInt();
+  
+  Var64=~Var64;
+  tmpVar64=~tmpVar64;
+  
+  Var64=Var64&((SymbolArray[digits%10]|doEditBlink(5))<<6);
+  Var64=Var64<<48;
+  digits=digits/10;
+  
+  tmpVar64=(SymbolArray[digits%10]|doEditBlink(4))<<6;
+  Var64|=(tmpVar64<<38);
+  digits=digits/10;
+
+  tmpVar64=(SymbolArray[digits%10]|doEditBlink(3))<<6;
+  Var64|=(tmpVar64<<28);
+  digits=digits/10;
+  
+  tmpVar64=(SymbolArray[digits%10]|doEditBlink(2))<<6;
+  Var64|=(tmpVar64<<18);
+  digits=digits/10;
+  
+  tmpVar64=(SymbolArray[digits%10]|doEditBlink(1))<<6;
+  Var64|=(tmpVar64<<8);
+  digits=digits/10;
+  
+  tmpVar64=(SymbolArray[digits%10]|doEditBlink(0))<<6>>2;
+  Var64|=tmpVar64;
+  
+  Var64=(Var64>>4);
     
-    b=b<<1;
-    if (b>B00100000) {b=B00000001;}
-  }
+  unsigned int iTmp=0;
+  
+  iTmp=Var64>>56;
+  SPI.transfer(iTmp);
+  iTmp=Var64>>48;
+  SPI.transfer(iTmp);
+  iTmp=Var64>>40;
+  SPI.transfer(iTmp);
+  iTmp=Var64>>32;
+  SPI.transfer(iTmp);
+  iTmp=Var64>>24;
+  SPI.transfer(iTmp);
+  iTmp=Var64>>16;
+  SPI.transfer(iTmp);
+  iTmp=Var64>>8;
+  SPI.transfer(iTmp);
+  iTmp=Var64;
+  SPI.transfer(iTmp);
+
+  digitalWrite(LEpin, HIGH);    // allow data input (Transparent mode)    
+  digitalWrite(LEpin, LOW);     // latching data 
 }
 
 byte CheckButtonsState()
@@ -590,16 +553,14 @@ String updateDisplayString()
   static  unsigned long lastTimeStringWasUpdated;
   if ((millis()-lastTimeStringWasUpdated)>1000)
   {
+    //Serial.println("doDotBlink");
+    //doDotBlink();
     lastTimeStringWasUpdated=millis();
-    return getTimeNow();
+    if (value[hModeValueIndex]==24) return PreZero(hour())+PreZero(minute())+PreZero(second());
+      else return PreZero(hourFormat12())+PreZero(minute())+PreZero(second());
+    
   }
   return stringToDisplay;
-}
-
-String getTimeNow()
-{
-  if (value[hModeValueIndex]==24) return PreZero(hour())+PreZero(minute())+PreZero(second());
-      else return PreZero(hourFormat12())+PreZero(minute())+PreZero(second());
 }
 
 void doTest()
@@ -612,66 +573,102 @@ void doTest()
   Serial.print(F("U input="));
   Serial.print(Uinput);
   
-    p=song;
-    parseSong(p);
+  p=song;
+  parseSong(p);
    
-    analogWrite(RedLedPin,255);
-    delay(1000);
-    analogWrite(RedLedPin,0);
-    analogWrite(GreenLedPin,255);
-    delay(1000);
-    analogWrite(GreenLedPin,0);
-    analogWrite(BlueLedPin,255);
-    delay(1000); 
-//while(1);
+  analogWrite(RedLedPin,255);
+  delay(1000);
+  analogWrite(RedLedPin,0);
+  analogWrite(GreenLedPin,255);
+  delay(1000);
+  analogWrite(GreenLedPin,0);
+  analogWrite(BlueLedPin,255);
+  delay(1000); 
+  //while(1);
   
- byte b=B00000001;
- int curTube;
- String testStringArray[12]={"000000","111111","222222","333333","444444","555555","666666","777777","888888","999999","",""};
+  String testStringArray[12]={"000000","111111","222222","333333","444444","555555","666666","777777","888888","999999","",""};
 
-if (Uinput<10) testStringArray[10]="000"+String(int(Uinput*100)); else testStringArray[10]="00"+String(int(Uinput*100));
+  if (Uinput<10) testStringArray[10]="000"+String(int(Uinput*100)); else testStringArray[10]="00"+String(int(Uinput*100));
+  testStringArray[11]=FirmwareVersion;
 
-testStringArray[11]=FirmwareVersion;
-
-int dlay=500;
- bool test=1;
- byte strIndex=0;
- unsigned long startOfTest=millis();
- bool digitsLock=false;
- while (test)
- {
-   if (digitalRead(pinDown)==0) digitsLock=true;
+  int dlay=500;
+  bool test=1;
+  byte strIndex=-1;
+  unsigned long startOfTest=millis();
+  digitalWrite(DHVpin, HIGH);
+  bool digitsLock=false;
+  while (test)
+  {
+    if (digitalRead(pinDown)==0) digitsLock=true;
     if (digitalRead(pinUp)==0) digitsLock=false;
+  for (int i=0; i<12; i++)
+  {
    if ((millis()-startOfTest)>dlay) 
    {
      startOfTest=millis();
      if (!digitsLock) strIndex=strIndex+1;
      if (strIndex==10) dlay=3000;
      if (strIndex==12) test=0;
-   }
-   digitalWrite(HIZpin, LOW);    // High impedence outputs
-   digitalWrite(LEpin, HIGH);    // allow data input (Transparent mode)
- 
-  curTube=int(log(b)/log(2));
- 
- switch (strIndex)
- {
-   case 10: SPI.transfer((b|B01000000)&B11111100);
-   break;
-   case 11: SPI.transfer((b|B01000000)&B11001110);
-   break;
-   default: SPI.transfer(b|B11000000);
- }
- 
-  SPI.transfer(highBytesArray[testStringArray[strIndex].substring(curTube,curTube+1).toInt()]);
-  SPI.transfer(lowBytesArray[testStringArray[strIndex].substring(curTube,curTube+1).toInt()]);
+     
+     stringToDisplay=testStringArray[strIndex];
+     long digits=stringToDisplay.toInt();
+   
+    unsigned long long Var64=0;
+    unsigned long long tmpVar64=0;
+    Var64=~Var64;
+    tmpVar64=~tmpVar64;
   
-  digitalWrite(LEpin, LOW);     // latching data 
-  digitalWrite(HIZpin, HIGH);   // Outputs on
-  b=b<<1;
-  if (b>B00100000) {b=B00000001;}
-  delayMicroseconds(2000);
+    Var64=Var64&((SymbolArray[digits%10])<<6);
+    Var64=Var64<<48;
+    digits=digits/10;
+  
+    tmpVar64=(SymbolArray[digits%10])<<6;
+    Var64|=(tmpVar64<<38);
+    digits=digits/10;
+
+    tmpVar64=(SymbolArray[digits%10])<<6;
+    Var64|=(tmpVar64<<28);
+    digits=digits/10;
+  
+    tmpVar64=(SymbolArray[digits%10])<<6;
+    Var64|=(tmpVar64<<18);
+    digits=digits/10;
+  
+    tmpVar64=(SymbolArray[digits%10])<<6;
+    Var64|=(tmpVar64<<8);
+    digits=digits/10;
+  
+    tmpVar64=(SymbolArray[digits%10])<<6>>2;
+    Var64|=tmpVar64;
+  
+    Var64=(Var64>>4);
+    
+    unsigned int iTmp=0;
+  
+    digitalWrite(LEpin, HIGH);    // allow data input (Transparent mode)
+    iTmp=Var64>>56;
+    SPI.transfer(iTmp);
+    iTmp=Var64>>48;
+    SPI.transfer(iTmp);
+    iTmp=Var64>>40;
+    SPI.transfer(iTmp);
+    iTmp=Var64>>32;
+    SPI.transfer(iTmp);
+    iTmp=Var64>>24;
+    SPI.transfer(iTmp);
+    iTmp=Var64>>16;
+    SPI.transfer(iTmp);
+    iTmp=Var64>>8;
+    SPI.transfer(iTmp);
+    iTmp=Var64;
+    SPI.transfer(iTmp);
+      
+    digitalWrite(LEpin, LOW);     // latching data 
+   }
+  }
+   delayMicroseconds(2000);
   }; 
+
   Serial.println(F("Stop Test"));
   
 }
@@ -684,8 +681,18 @@ void doDotBlink()
   {
     lastTimeBlink=millis();
     dotState=!dotState;
-    if (dotState) dotPattern=B11000000;
-      else dotPattern=B00000000;
+    if (dotState) 
+      {
+        dotPattern=B11000000;
+        /*digitalWrite(pinUpperDots, HIGH);
+        digitalWrite(pinLowerDots, HIGH);*/
+      }
+      else 
+      {
+        dotPattern=B00000000;
+        /*digitalWrite(pinUpperDots, LOW); 
+        digitalWrite(pinLowerDots, LOW);*/
+      }
   }
 }
 
@@ -735,29 +742,68 @@ void getRTCTime()
   RTC_year = bcdToDec(Wire.read());
 }
 
-byte doEditBlink()
+word doEditBlink(int pos)
 {
-  if (!BlinkUp) return B11111111;
-  if (!BlinkDown) return B11111111;
+  if (!BlinkUp) return 0;
+  if (!BlinkDown) return 0;
+  //if (pos==5) return 0xFFFF; //need to be deleted for testing purpose only!
+  int lowBit=blinkMask>>pos;
+  lowBit=lowBit&B00000001;
+  
   static unsigned long lastTimeEditBlink=millis();
-  static bool blinkState=0;
-  static byte tmp;
+  static bool blinkState=false;
+  word mask=0;
+  static int tmp=0;//blinkMask;
   if ((millis()-lastTimeEditBlink)>300) 
   {
     lastTimeEditBlink=millis();
     blinkState=!blinkState;
-    if (blinkState) tmp= B11111111;
-      else tmp=~blinkMask;
+    /*Serial.print("blinkpattern= ");
+    Serial.println(blinkPattern[menuPosition]);
+    if (((blinkPattern[menuPosition]>>8)&1==1) && blinkState==true) digitalWrite(pinLowerDots, HIGH);
+      else digitalWrite(pinLowerDots, LOW);
+    if (((blinkPattern[menuPosition]>>7)&1==1) && blinkState==true) digitalWrite(pinUpperDots, HIGH);
+      else digitalWrite(pinUpperDots, LOW);
+    */
+    if (blinkState) tmp= 0;
+      else tmp=blinkMask;
   }
-  return tmp;
+  if (((dotPattern&~tmp)>>6)&1==1) digitalWrite(pinLowerDots, HIGH);
+      else digitalWrite(pinLowerDots, LOW);
+  if (((dotPattern&~tmp)>>7)&1==1) digitalWrite(pinUpperDots, HIGH);
+      else digitalWrite(pinUpperDots, LOW);
+      
+  if ((blinkState==true) && (lowBit==1)) mask=0xFFFF;//mask=B11111111;
+  return mask;
 }
 
 int extractDigits(byte b)
 {
   String tmp="1";
-  if (b==B00000011) tmp=stringToDisplay.substring(0,2);
-  if (b==B00001100) tmp=stringToDisplay.substring(2,4);
-  if (b==B00110000) tmp=stringToDisplay.substring(4);
+  /*Serial.print("blink pattern= ");
+  Serial.println(b);
+  Serial.print("stringToDisplay= ");
+  Serial.println(stringToDisplay);*/
+  if (b==B00000011) 
+    {
+    tmp=stringToDisplay.substring(0,2);
+    /*Serial.print("stringToDisplay1= ");
+    Serial.println(stringToDisplay);*/
+    }
+  if (b==B00001100) 
+    {
+    tmp=stringToDisplay.substring(2,4);
+    /*Serial.print("stringToDisplay2= ");
+    Serial.println(stringToDisplay);*/
+    }
+  if (b==B00110000) 
+    {
+      tmp=stringToDisplay.substring(4);
+      /*Serial.print("stringToDisplay3= ");
+      Serial.println(stringToDisplay);*/
+    }
+  /*Serial.print("stringToDisplay4= ");
+  Serial.println(stringToDisplay);*/
   return tmp.toInt();
 }
 
@@ -778,13 +824,13 @@ bool isValidDate()
 }
 
 byte default_dur = 4;
-  byte default_oct = 6;
-  int bpm = 63;
-  int num;
-  long wholenote;
-  long duration;
-  byte note;
-  byte scale;
+byte default_oct = 6;
+int bpm = 63;
+int num;
+long wholenote;
+long duration;
+byte note;
+byte scale;
 char* parseSong(char *p)
 {
   // Absolutely no error checking in here
@@ -834,8 +880,8 @@ char* parseSong(char *p)
   return p;
 }
 
-  // now begin note loop
-  static unsigned long lastTimeNotePlaying=0;
+ // now begin note loop
+ static unsigned long lastTimeNotePlaying=0;
  char* playmusic(char *p)
   {
      if(*p==0) 
@@ -946,8 +992,8 @@ void incrementValue()
        if (value[menuPosition]>maxValue[menuPosition])  value[menuPosition]=minValue[menuPosition];
        if (menuPosition==Alarm01) 
         {
-         if (value[menuPosition]==1) dotPattern=B10000000;//turn on all dots
-           else dotPattern=B00000000; //turn off all dots
+         if (value[menuPosition]==1) /*digitalWrite(pinUpperDots, HIGH);*/dotPattern=B10000000;//turn on all dots
+           /*else digitalWrite(pinUpperDots, LOW); */ dotPattern=B00000000; //turn off all dots
         }
       injectDigits(blinkMask, value[menuPosition]);
       } 
@@ -962,8 +1008,8 @@ void dicrementValue()
       if (value[menuPosition]<minValue[menuPosition]) value[menuPosition]=maxValue[menuPosition];
       if (menuPosition==Alarm01) 
         {
-         if (value[menuPosition]==1) dotPattern=B10000000;//turn on upper dots включаем верхние точки
-           else dotPattern=B00000000; //turn off upper dots
+         if (value[menuPosition]==1) /*digitalWrite(pinUpperDots, HIGH);*/ dotPattern=B10000000;//turn on upper dots включаем верхние точки
+           else /*digitalWrite(pinUpperDots, LOW);*/ dotPattern=B00000000; //turn off upper dots
         }
       injectDigits(blinkMask, value[menuPosition]);
       }
@@ -985,84 +1031,11 @@ void checkAlarmTime()
    }
 }
 
-String updateDateString()
-{
-  static unsigned long lastTimeDateUpdate=millis();
-  static String DateString=PreZero(day())+PreZero(month())+PreZero(year()%1000);
-  if ((millis()-lastTimeDateUpdate)>1000) 
-  {
-    lastTimeDateUpdate=millis();
-    DateString=PreZero(day())+PreZero(month())+PreZero(year()%1000); 
-  }
- return DateString;
-}
 
 void setLEDsFromEEPROM()
 {
   digitalWrite(RedLedPin, EEPROM.read(LEDsRedValueEEPROMAddress));
   digitalWrite(GreenLedPin, EEPROM.read(LEDsGreenValueEEPROMAddress));
   digitalWrite(BlueLedPin, EEPROM.read(LEDsBlueValueEEPROMAddress));
-}
-void modesChanger()
-{
-  if (editMode==true) return;
-  static unsigned long lastTimeModeChanged=millis();
-  static unsigned long lastTimeAntiPoisoningIterate=millis();
-  if ((millis()-lastTimeModeChanged)>modesChangePeriod) 
-  {
-    lastTimeModeChanged=millis();
-    if (menuPosition==TimeIndex) menuPosition=DateIndex;
-      else menuPosition=TimeIndex;
-    if (modeChangedByUser==true) 
-    {
-      menuPosition=TimeIndex;
-    }
-    modeChangedByUser=false;
-  }
-  if ((millis()-lastTimeModeChanged)<2000) 
-  {
-    if ((millis()-lastTimeAntiPoisoningIterate)>100)  
-    {
-      lastTimeAntiPoisoningIterate=millis();
-      if (menuPosition==TimeIndex)
-        stringToDisplay=antiPoisoning2(PreZero(day())+PreZero(month())+PreZero(year()%1000), getTimeNow());
-      else stringToDisplay=antiPoisoning2(getTimeNow(), PreZero(day())+PreZero(month())+PreZero(year()%1000));
-      Serial.println("StrTDInToModeChng="+stringToDisplay);
-    }
-  } else transactionInProgress=false;
-}
-
-String antiPoisoning2(String fromStr, String toStr)
-{
-  //static bool transactionInProgress=false;
-  //byte fromDigits[6];
-  static byte toDigits[6];
-  static byte currentDigits[6];
-  static byte iterationCounter=0;
-  if (!transactionInProgress) 
-  {
-    transactionInProgress=true;
-    for (int i=0; i<6; i++)
-    {
-      currentDigits[i]=fromStr.substring(i, i+1).toInt();
-      toDigits[i]=toStr.substring(i, i+1).toInt();
-    }
-  }
-  for (int i=0; i<6; i++)
-  {
-    if (iterationCounter<10) currentDigits[i]++;
-      else if (currentDigits[i]!=toDigits[i]) currentDigits[i]++;
-    if (currentDigits[i]==10) currentDigits[i]=0;
-  }
-  iterationCounter++;
-  if (iterationCounter==20)
-  {
-    iterationCounter=0;
-    transactionInProgress=false;
-  }
-  String tmpStr;
-  for (int i=0; i<6; i++)
-    tmpStr+=currentDigits[i];
-  return tmpStr;
 }
 
