@@ -1,6 +1,8 @@
-const String FirmwareVersion="010200";
+  const String FirmwareVersion="010300";
 //Format                _X.XX__    
 //NIXIE CLOCK MCU107 NCS314 by GRA & AFCH (fominalec@gmail.com)
+//1.0.3 17.02.2017
+// Added: time synchronizing each 10 seconds
 //1.02 17.10.2016
 //Fixed: RGB color controls
 //Update to Arduino IDE 1.6.12 (Time.h replaced to TimeLib.h)
@@ -9,6 +11,7 @@ const String FirmwareVersion="010200";
 //Added Down and Up buttons pause and resume self testing
 //25.09.2016 update to HW ver 1.1
 //25.05.2016
+
  
 #include <SPI.h>
 #include <Wire.h>
@@ -44,6 +47,8 @@ const byte pinBuzzer=2;
 const byte pinUpperDots=12; //HIGH value light a dots
 const byte pinLowerDots=4;  //HIGH value light a dots
 const word fpsLimit=16666; // 1/60*1.000.000 //limit maximum refresh rate on 60 fps
+bool RTC_present;
+
 
 String stringToDisplay="000000";// Conten of this string will be displayed on tubes (must be 6 chars length)
 int menuPosition=0; // 0 - time
@@ -236,6 +241,20 @@ void setup()
       setLEDsFromEEPROM();
     }
   getRTCTime();
+  byte prevSeconds=RTC_seconds;
+  unsigned long RTC_ReadingStartTime=millis();
+  RTC_present=true;
+  while(prevSeconds==RTC_seconds)
+  {
+    getRTCTime();
+    //Serial.println(RTC_seconds);
+    if ((millis()-RTC_ReadingStartTime)>3000)
+    {
+      Serial.println(F("Warning! RTC DON'T RESPOND!"));
+      RTC_present=false;
+      break;
+    }
+  }
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
 //  digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
   //setRTCDateTime(RTC_hours,RTC_minutes,RTC_seconds,RTC_day,RTC_month,RTC_year,1); //записываем только что считанное время в RTC чтобы запустить новую микросхему
@@ -262,6 +281,14 @@ unsigned long prevTime4FireWorks=0;  //time of last RGB changed
 MAIN Programm
 ***************************************************************************************************************/
 void loop() {
+
+ if (((millis()%60000)==0)&&(RTC_present)) //synchronize with RTC every 10 seconds
+ {
+  getRTCTime();
+  setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
+  Serial.println("sync:");
+  Serial.println(RTC_seconds);
+ }
   
   p=playmusic(p);
   
@@ -988,7 +1015,6 @@ void checkAlarmTime()
      p=song;
    }
 }
-
 
 void setLEDsFromEEPROM()
 {

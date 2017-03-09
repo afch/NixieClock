@@ -1,6 +1,8 @@
-const String FirmwareVersion="015400";
+const String FirmwareVersion="015500";
 //Format                     _X.XX__    
 /*NIXIE CLOCK NCM105 v.1.6 by GRA & AFCH (fominalec@gmail.com)
+ * 1.5.5 17.02.2017
+ * Added: time synchronizing each 10 seconds
  * 1.5.41 12.12.2016
  * Disabled RTC adjusting
  * Fixed: Break infinity loop on power on while reading RTC
@@ -119,6 +121,7 @@ const byte pinUp=A2;
 const byte pinDown=A1;
 const byte pinBuzzer=2;
 #define RTC_Deviation 5
+bool RTC_present;
 
 String stringToDisplay="000000";// Conten of this string will be displayed on tubes (must be 6 chars length)
 int menuPosition=0; // 0 - time
@@ -318,6 +321,7 @@ void setup()
   getRTCTime();
   byte prevSeconds=RTC_seconds;
   unsigned long RTC_ReadingStartTime=millis();
+  RTC_present=true;
   while(prevSeconds==RTC_seconds)
   {
     getRTCTime();
@@ -325,6 +329,7 @@ void setup()
     if ((millis()-RTC_ReadingStartTime)>3000)
     {
       Serial.println(F("Warning! RTC DON'T RESPOND!"));
+      RTC_present=false;
       break;
     }
   }
@@ -353,6 +358,13 @@ unsigned long prevTime4FireWorks=0;  //time of last RGB changed
 MAIN Programm
 ***************************************************************************************************************/
 void loop() {
+
+  if (((millis()%10000)==0)&&(RTC_present)) //synchronize with RTC every 10 seconds
+ {
+  getRTCTime();
+  setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
+  //Serial.println("sync");
+ }
   
   p=playmusic(p);
   
