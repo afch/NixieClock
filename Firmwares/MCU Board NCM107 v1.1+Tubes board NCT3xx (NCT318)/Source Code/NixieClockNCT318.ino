@@ -1,4 +1,4 @@
-const String FirmwareVersion="010200";
+const String FirmwareVersion="010210";
 //Format                _X.XX__    
 //NIXIE CLOCK SHIELD NCS314 by GRA & AFCH (fominalec@gmail.com)
 //1.02 17.10.2016
@@ -16,7 +16,7 @@ const String FirmwareVersion="010200";
 #include <TimeLib.h>
 #include <Tone.h>
 #include <EEPROM.h>
-#include <OneWire.h>
+//#include <OneWire.h>
 
 #define UpperDotsMask 0x8000000080000000
 #define LowerDotsMask 0x4000000040000000
@@ -31,7 +31,7 @@ const String FirmwareVersion="010200";
 
 const byte LEpin=10; //pin Latch Enabled data accepted while HI level
 const byte HIZpin=8; //pin Z state in registers outputs (while LOW level)
-const byte DHVpin=5; // off/on MAX1771 Driver  Hight Voltage(DHV) 110-220V 
+//const byte DHVpin=5; // off/on MAX1771 Driver  Hight Voltage(DHV) 110-220V 
 const byte RedLedPin=9; //MCU WDM output for red LEDs 9-g
 const byte GreenLedPin=6; //MCU WDM output for green LEDs 6-b
 const byte BlueLedPin=3; //MCU WDM output for blue LEDs 3-r
@@ -166,8 +166,24 @@ Init Programm
 *******************************************************************************************************/
 void setup() 
 {
-  pinMode(DHVpin, OUTPUT);
-  digitalWrite(DHVpin, LOW);    // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
+  SPI.begin(); // 
+  SPI.setDataMode (SPI_MODE2); // Mode 2 SPI // судя по данным осциллографа нужно использовать этот режим
+  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz
+
+  int blank=B00000000;
+  SPI.transfer(blank);
+  SPI.transfer(blank);
+  SPI.transfer(blank);
+  SPI.transfer(blank);
+  SPI.transfer(blank);
+  SPI.transfer(blank);
+  SPI.transfer(blank);
+  SPI.transfer(blank);
+
+   delay (3000);
+  
+ // pinMode(DHVpin, OUTPUT);
+  //digitalWrite(DHVpin, LOW);    // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
   Wire.begin();
   //setRTCDateTime(23,40,00,25,7,15,1);
   
@@ -194,9 +210,7 @@ void setup()
   
  // SPI setup
 
-  SPI.begin(); // 
-  SPI.setDataMode (SPI_MODE2); // Mode 2 SPI // судя по данным осциллографа нужно использовать этот режим
-  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz
+  
   Serial.println(SPCR, BIN);
   //SPCR=B00111111;
   Serial.println(SPCR, BIN);
@@ -224,14 +238,14 @@ void setup()
   //
   //digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
   // code below must be moved to dotest function
-/*  if ( !ds.search(addr)) 
+  /*if ( !ds.search(addr)) 
   {
     Serial.println(F("Temp. sensor not found."));
     ds.reset_search();
   } else TempPresent=true;
   if (TempPresent)
   {
-/*    ds.reset();
+    ds.reset();
     ds.select(addr);    
     ds.write(0xBE);         // Read Scratchpad
 
@@ -245,7 +259,7 @@ void setup()
   } else celsius=0;*/
   //to dotest
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  //doTest();
+  doTest();
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   if (LEDsLock==1)
     {
@@ -253,9 +267,9 @@ void setup()
     }
   getRTCTime();
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
-  digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
+//  digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
   setRTCDateTime(RTC_hours,RTC_minutes,RTC_seconds,RTC_day,RTC_month,RTC_year,1); //записываем только что считанное время в RTC чтобы запустить новую микросхему
-  digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
+//  digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
   //p=song;
 }
 
@@ -322,9 +336,9 @@ void loop() {
         if (menuPosition==DateIndex) setTime(hour(), minute(), second(),value[DateDayIndex], value[DateMonthIndex], 2000+value[DateYearIndex]);
         if (menuPosition==AlarmIndex) {EEPROM.write(AlarmTimeEEPROMAddress,value[AlarmHourIndex]); EEPROM.write(AlarmTimeEEPROMAddress+1,value[AlarmMinuteIndex]); EEPROM.write(AlarmTimeEEPROMAddress+2,value[AlarmSecondIndex]); EEPROM.write(AlarmArmedEEPROMAddress, value[Alarm01]);};
         if (menuPosition==hModeIndex) EEPROM.write(HourFormatEEPROMAddress, value[hModeValueIndex]);
-        digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
+//        digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
         setRTCDateTime(hour(),minute(),second(),day(),month(),year()%1000,1);
-        digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
+//        digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
       }
       value[menuPosition]=extractDigits(blinkMask);
     }
@@ -599,12 +613,8 @@ String updateDisplayString()
 void doTest()
 {
   Serial.print(F("Firmware version: "));
-  Serial.println(FirmwareVersion.substring(1,2)+"."+FirmwareVersion.substring(2,4));
+  Serial.println(FirmwareVersion.substring(1,2)+"."+FirmwareVersion.substring(2,5));
   Serial.println(F("Start Test"));
-  int adc=analogRead(A3);
-  float Uinput=4.6*(5.0*adc)/1024.0+0.7;
-  Serial.print(F("U input="));
-  Serial.println(Uinput);
   
   p=song;
   parseSong(p);
@@ -620,11 +630,11 @@ void doTest()
   //while(1);
   Serial.print("Free ram = ");
   Serial.println(freeRam());
-  String testStringArray[13]={"000000","111111","222222","333333","444444","555555","666666","777777","888888","999999","","",""};
+  String testStringArray[11]={"000000","111111","222222","333333","444444","555555","666666","777777","888888","999999",""};
 
-  if (Uinput<10) testStringArray[10]="000"+String(int(Uinput*100)); else testStringArray[10]="00"+String(int(Uinput*100));
-  testStringArray[11]=FirmwareVersion;
-  testStringArray[12]="00"+PreZero(celsius)+"00";
+//  if (Uinput<10) testStringArray[10]="000"+String(int(Uinput*100)); else testStringArray[10]="00"+String(int(Uinput*100));
+  testStringArray[10]=FirmwareVersion;
+  //testStringArray[12]="00"+PreZero(celsius)+"00";
   Serial.print(F("Temp = "));
   Serial.println(celsius);
 
@@ -632,25 +642,26 @@ void doTest()
   bool test=1;
   byte strIndex=-1;
   unsigned long startOfTest=millis()+1000; //disable delaying in first iteration
-  digitalWrite(DHVpin, HIGH);
+  //digitalWrite(DHVpin, HIGH);
   bool digitsLock=false;
   while (test)
   {
     if (digitalRead(pinDown)==0) digitsLock=true;
     if (digitalRead(pinUp)==0) digitsLock=false;
 
-  for (byte i=0; i<13; i++)
+  for (byte i=0; i<11; i++)
   {
    if ((millis()-startOfTest)>dlay) 
    {
      startOfTest=millis();
      if (!digitsLock) strIndex=strIndex+1;
      if (strIndex==10) dlay=3000;
-     if (strIndex==13) test=0;
+     if (strIndex==11) test=0;
 
      stringToDisplay=testStringArray[strIndex];
      Serial.println(stringToDisplay);
-     long digits=stringToDisplay.toInt();
+     doIndication();
+     /*long digits=stringToDisplay.toInt();
    
     unsigned long long Var64=0;
     unsigned long long tmpVar64=0;
@@ -703,7 +714,7 @@ void doTest()
     SPI.transfer(~iTmp);
       
     digitalWrite(LEpin, LOW);     // latching data 
-    
+    */
    }
   }
    delayMicroseconds(2000);
