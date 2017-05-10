@@ -84,12 +84,12 @@ void doIndication()
   Var32|= (unsigned long)SymbolArray[digits%10]&doEditBlink(0); //h1
   digits=digits/10;
 
-  if (LD) Var32&=~LowerDotsMask;
+  if (LD) Var32&=~LowerDotsMask;  
     else  Var32|=LowerDotsMask;
   
   if (UD) Var32&=~UpperDotsMask; 
     else  Var32|=UpperDotsMask; 
-
+     
   SPI.transfer(Var32>>24);
   SPI.transfer(Var32>>16);
   SPI.transfer(Var32>>8);
