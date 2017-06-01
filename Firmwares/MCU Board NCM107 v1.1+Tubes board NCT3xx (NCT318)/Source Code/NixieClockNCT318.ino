@@ -1,6 +1,8 @@
-const String FirmwareVersion = "010310";
+const String FirmwareVersion = "010320";
 //Format                _X.XX__
 //NIXIE CLOCK NCM107 v1.1(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+//1.032 
+//Added: time sync with RTC each 60 seconds
 //1.02 17.10.2016
 //Fixed: RGB color controls
 //Update to Arduino IDE 1.6.12 (Time.h replaced to TimeLib.h)
@@ -47,7 +49,7 @@ const byte pinBuzzer = 2;
 const byte pinUpperDots = 12; //HIGH value light a dots
 const byte pinLowerDots = 8; //HIGH value light a dots
 //const uint16_t fpsLimit = 16666; // 1/60*1.000.000 //limit maximum refresh rate on 60 fps
-
+bool RTC_present;
 //word SymbolArray[];
 
 
@@ -283,6 +285,20 @@ void setup()
     setLEDsFromEEPROM();
   }
   getRTCTime();
+  byte prevSeconds=RTC_seconds;
+  unsigned long RTC_ReadingStartTime=millis();
+  RTC_present=true;
+  while(prevSeconds==RTC_seconds)
+  {
+    getRTCTime();
+    //Serial.println(RTC_seconds);
+    if ((millis()-RTC_ReadingStartTime)>3000)
+    {
+      Serial.println(F("Warning! RTC DON'T RESPOND!"));
+      RTC_present=false;
+      break;
+    }
+  }
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
   digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
   setRTCDateTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, 1); //записываем только что считанное время в RTC чтобы запустить новую микросхему
@@ -369,6 +385,13 @@ unsigned long prevTime4FireWorks = 0; //time of last RGB changed
   MAIN Programm
 ***************************************************************************************************************/
 void loop() {
+
+  if (((millis()%60000)==0)&&(RTC_present)) //synchronize with RTC every 10 seconds
+ {
+  getRTCTime();
+  setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
+  Serial.println(F("sync"));
+ }
 
   p = playmusic(p);
 
