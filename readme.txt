@@ -12,7 +12,7 @@
 https://youtu.be/DQZWPn0iAHw
 
 3. Compatibility:
-	NCM 105 is compatible with NCT 2xx series and NCT566, NCT573 tubes boards.
+	NCM 105 is compatible with NCT 2xx series and NCT566, NCT573 tubes boards. (Leagcy)
 	NCM 107 is compatible with NCT 3xx, NCT 4xx series and NCT3566, NCT3573 tubes boards.
 
 3. eBay stores:
