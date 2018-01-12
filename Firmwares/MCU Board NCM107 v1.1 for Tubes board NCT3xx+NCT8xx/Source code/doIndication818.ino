@@ -27,10 +27,10 @@ void doIndication()
    * Формат данных [H1][H2}[M1][M2][S1][Y1][Y2]
    *********************************************************/
   //-------- REG 2 ----------------------------------------------- 
-  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(7))<<10; // Y2
+  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(7)&blankDigit(0))<<10; // Y2
   digits=digits/10;
 
-  Var32 |= (unsigned long)SymbolArray[digits%10]&doEditBlink(6);//y1
+  Var32 |= (unsigned long)SymbolArray[digits%10]&doEditBlink(6)&blankDigit(1);//y1
   digits=digits/10;
 
   if (LD) Var32&=~LowerDotsMask;
@@ -51,13 +51,13 @@ void doIndication()
  //-------- REG 1 ----------------------------------------------- 
   Var32=0;
  
-  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(5))<<20; // s2
+  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(5)&blankDigit(2))<<20; // s2
   digits=digits/10;
 
-  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(4))<<10; //s1
+  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(4)&blankDigit(3))<<10; //s1
   digits=digits/10;
 
-  Var32|=(unsigned long) (SymbolArray[digits%10]&doEditBlink(3)); //m2
+  Var32|=(unsigned long) (SymbolArray[digits%10]&doEditBlink(3)&blankDigit(4)); //m2
   digits=digits/10;
 
   if (LD) Var32&=~LowerDotsMask;
@@ -75,13 +75,13 @@ void doIndication()
  //-------- REG 0 ----------------------------------------------- 
   Var32=0;
   
-  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(2))<<20; // m1
+  Var32|=(unsigned long)(SymbolArray[digits%10]&doEditBlink(2)&blankDigit(5))<<20; // m1
   digits=digits/10;
 
-  Var32|= (unsigned long)(SymbolArray[digits%10]&doEditBlink(1))<<10; //h2
+  Var32|= (unsigned long)(SymbolArray[digits%10]&doEditBlink(1)&blankDigit(6))<<10; //h2
   digits=digits/10;
 
-  Var32|= (unsigned long)SymbolArray[digits%10]&doEditBlink(0); //h1
+  Var32|= (unsigned long)SymbolArray[digits%10]&doEditBlink(0)&blankDigit(7); //h1
   digits=digits/10;
 
   if (LD) Var32&=~LowerDotsMask;  
@@ -134,3 +134,11 @@ word doEditBlink(int pos)
   return mask;
 }
 
+word blankDigit(int pos)
+{
+  int lowBit=blankMask>>pos;
+  lowBit=lowBit&B00000001;
+  word mask=0xFFFF;
+  if (lowBit==1) mask=0x3C00;
+  return mask;
+}
