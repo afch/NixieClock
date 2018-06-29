@@ -1,5 +1,6 @@
 //driver for NCM109+NCT4XX series (register HV5122)
-//driver version 1.0
+//driver version 1.1
+//29/06/2018 blink bug fixed
 //1 on register's output will turn on a digit 
 
 #include "doIndication109.h"
@@ -59,10 +60,8 @@ void doIndication()
 
 int doEditBlink(int pos)
 {
-  //if (pos==5) return 0; //need to be deleted for testing purpose only!
-  //return 0xFFFF;
-  if (!BlinkUp) return TubeOff;
-  if (!BlinkDown) return TubeOff;
+  if (!BlinkUp) return TubeOn;
+  if (!BlinkDown) return TubeOn;
   int lowBit=blinkMask>>pos;
   lowBit=lowBit&B00000001;
   
@@ -86,38 +85,6 @@ int doEditBlink(int pos)
   if ((blinkState==true) && (lowBit==1)) mask=TubeOff;//mask=B11111111;
   return mask;
 }
-
-
-/*word doEditBlink(int pos)
-{
-  
-  if (!BlinkUp) return 0xFFFF;
-  if (!BlinkDown) return 0xFFFF;
-  //if (pos==5) return 0xFFFF; //need to be deleted for testing purpose only!
-  int lowBit=blinkMask>>pos;
-  lowBit=lowBit&B00000001;
-  
-  static unsigned long lastTimeEditBlink=millis();
-  static bool blinkState=false;
-  word mask=0xFFFF;
-  static int tmp=0;//blinkMask;
-  if ((millis()-lastTimeEditBlink)>300) 
-  {
-    lastTimeEditBlink=millis();
-    blinkState=!blinkState;
-    if (blinkState) tmp= 0;
-      else tmp=blinkMask;
-  }
-  if (((dotPattern&~tmp)>>6)&1==1) LD=true;//digitalWrite(pinLowerDots, HIGH);
-      else LD=false; //digitalWrite(pinLowerDots, LOW);
-  if (((dotPattern&~tmp)>>7)&1==1) UD=true; //digitalWrite(pinUpperDots, HIGH);
-      else UD=false; //digitalWrite(pinUpperDots, LOW);
-      
-  if ((blinkState==true) && (lowBit==1)) mask=0x3C00;//mask=B11111111;
-  //Serial.print("doeditblinkMask=");
-  //Serial.println(mask, BIN);
-  return mask;
-}*/
 
 
 
