@@ -1,5 +1,6 @@
 //driver for NCM107+NCT318+NCT818 (registers HV5122)
-//driver version 1.0
+//driver version 1.1 04.08.2018
+//Fixed: dots mixed up
 //1 on register's output will turn on a digit 
 
 #include "doIndication318.h"
@@ -59,11 +60,11 @@ void doIndication()
   Var32|=(unsigned long) (SymbolArray[digits%10]&doEditBlink(3)); //m2
   digits=digits/10;
 
-  if (LD) Var32&=~LowerDotsMask;
-    else  Var32|=LowerDotsMask;
+  if (LD) Var32|=LowerDotsMask;
+    else  Var32&=~LowerDotsMask;
   
-  if (UD) Var32&=~UpperDotsMask; 
-    else  Var32|=UpperDotsMask; 
+  if (UD) Var32|=UpperDotsMask; 
+    else Var32&=~UpperDotsMask;
 
   SPI.transfer(Var32>>24);
   SPI.transfer(Var32>>16);
@@ -83,11 +84,11 @@ void doIndication()
   Var32|= (unsigned long)SymbolArray[digits%10]&doEditBlink(0); //h1
   digits=digits/10;
 
-  if (LD) Var32&=~LowerDotsMask;  
-    else  Var32|=LowerDotsMask;
+  if (LD) Var32|=LowerDotsMask;
+    else Var32&=~LowerDotsMask; 
   
-  if (UD) Var32&=~UpperDotsMask; 
-    else  Var32|=UpperDotsMask; 
+  if (UD) Var32|=UpperDotsMask; 
+    else Var32&=~UpperDotsMask;
      
   SPI.transfer(Var32>>24);
   SPI.transfer(Var32>>16);

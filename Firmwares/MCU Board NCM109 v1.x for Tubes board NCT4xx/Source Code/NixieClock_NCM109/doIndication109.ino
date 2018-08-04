@@ -1,12 +1,15 @@
 //driver for NCM109+NCT4XX series (register HV5122)
-//driver version 1.1
-//29/06/2018 blink bug fixed
+//driver version 1.2
+//v 1.2 04.08.2018
+//fixed: dots mixed up
+//v 1.1 29/06/2018 
+//fixed: blink bug fixed
 //1 on register's output will turn on a digit 
 
 #include "doIndication109.h"
 
-#define UpperDotsMask 0x1000000
-#define LowerDotsMask 0x2000000
+#define UpperDotsMask 0x2000000
+#define LowerDotsMask 0x1000000
 
 void doIndication()
 {
@@ -37,11 +40,11 @@ void doIndication()
 
    var32 |= tmpVar<<10;
 
-   if (LD) var32&=~LowerDotsMask;
-    else  var32|=LowerDotsMask;
+   if (LD) var32|=LowerDotsMask;
+    else var32&=~LowerDotsMask;
   
-   if (UD) var32&=~UpperDotsMask; 
-    else  var32|=UpperDotsMask; 
+   if (UD) var32|=UpperDotsMask;
+    else var32&=~UpperDotsMask; 
 
    digitalWrite(LEpin, LOW);    // allow data input (Transparent mode)
 
