@@ -1,7 +1,9 @@
-const String FirmwareVersion = "015000";
+const String FirmwareVersion = "015200";
 #define HardwareVersion "MCU109 for 3XX_1K Series."
 //Format                _X.XX__
-//NIXIE CLOCK NCM109 v1.0 by GRA & AFCH (fominalec@gmail.com)
+//NIXIE CLOCK NCM109 3xx v1.0 by GRA & AFCH (fominalec@gmail.com)
+//1.52 01.24.2020
+//Added: DS3231 internal temperature sensor self test: 5 beeps if fail.
 //1.5 04.08.2018
 //Added: Dual Date Format
 //1.41 04.08.2018
@@ -758,8 +760,11 @@ void doTest()
        Serial.println(stringToDisplay);
       }
     doIndication();  
-   }
-   Serial.println(F("Stop Test"));
+  }
+
+  testDS3231TempSensor();
+   
+  Serial.println(F("Stop Test"));
 }
 
 void doDotBlink()
@@ -1285,4 +1290,26 @@ float getTemperature (boolean bTempFormat)
   iterator++;
   if (iterator==8) iterator=0;
   return fDegrees;
+}
+
+void testDS3231TempSensor()
+{
+  int8_t DS3231InternalTemperature=0;
+  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.write(0x11);
+  Wire.endTransmission();
+
+  Wire.requestFrom(DS1307_ADDRESS, 2);
+  DS3231InternalTemperature=Wire.read();
+  Serial.print(F("DS3231_T="));
+  Serial.println(DS3231InternalTemperature);
+  if ((DS3231InternalTemperature<5) || (DS3231InternalTemperature>60)) 
+  {
+    Serial.println(F("Faulty DS3231!"));
+    for (int i=0; i<5; i++)
+    {
+      tone1.play(1000, 1000);
+      delay(2000);
+    }
+  }
 }
