@@ -1,7 +1,15 @@
-const String FirmwareVersion = "016300";
+const String FirmwareVersion = "016600";
 //Format                _X.XX__
-#define HardwareVersion "MCU109 for 3XX Series on 8 tubes"
-//NIXIE CLOCK NCM107 v1.1(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+#define HardwareVersion "MCU109 for 3XX on 8 tubes (1K)"
+//NIXIE CLOCK NCM107, NCM109(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+//1.66 08.04.2020
+//Fixed: Seconds setting bug
+//1.65 01.24.2020
+//Added: DS3231 internal temperature sensor self test: 5 beeps if fail.
+//1.64 15/11/2019
+//Added: Millis on 8th tubes
+//Fixed: millis while in 12 hours time format
+//1.63 1K Ohm version 31/07/2019
 //1.63 05/11/2017
 //Added: LEDs brightness adjustments.
 //1.62 04/11/2017
@@ -301,9 +309,7 @@ void setup()
   SPI.begin(); //
   SPI.setDataMode (SPI_MODE2); // Mode 2 SPI // судя по данным осциллографа нужно использовать этот режим
   SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz
-  Serial.println(SPCR, BIN);
-  //SPCR=B00111111;
-  Serial.println(SPCR, BIN);
+
 #define SS 25;
   //buttons pins inits
   pinMode(pinSet,  INPUT_PULLUP);
@@ -330,7 +336,7 @@ void setup()
   // code below must be moved to dotest function
   if ( !ds.search(addr))
   {
-    Serial.println(F("Temp. sensor not found."));
+    //Serial.println(F("Temp. sensor not found."));
     ds.reset_search();
   } else TempPresent = true;
   if (TempPresent)
@@ -365,7 +371,7 @@ void setup()
     //Serial.println(RTC_seconds);
     if ((millis() - RTC_ReadingStartTime) > 3000)
     {
-      Serial.println(F("Warning! RTC DON'T RESPOND!"));
+      //Serial.println(F("Warning! RTC DON'T RESPOND!"));
       RTC_present = false;
       break;
     }
@@ -374,73 +380,7 @@ void setup()
   digitalWrite(DHVpin, LOW); // off MAX1771 Driver  Hight Voltage(DHV) 110-220V
   setRTCDateTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, 1); //записываем только что считанное время в RTC чтобы запустить новую микросхему
   digitalWrite(DHVpin, HIGH); // on MAX1771 Driver  Hight Voltage(DHV) 110-220V
-  //p=song;
-  // Block for photo sessions
-  /*stringToDisplay="09183450";
-    analogWrite(RedLedPin, 0);
-    analogWrite(GreenLedPin, 0);
-    analogWrite(BlueLedPin, 255);
-    int setClicksCounter, upClicksCounter, downClicksCounter;
-    downClicksCounter=1;
-    while(1){
-     doIndication();
-     setButton.Update();
-     upButton.Update();
-     downButton.Update();
-
-     if (setButton.clicks == 1) //short click
-      {
-        if (setClicksCounter>1) setClicksCounter=0;
-        if (setClicksCounter==0)
-          {
-            stringToDisplay="09183450";
-            UD=false;
-          } else
-          {
-            stringToDisplay="04272017";
-            UD=true;
-          }
-        setClicksCounter++;
-      }
-
-     if (upButton.clicks == 1) //short click
-      {
-        upClicksCounter++;
-        if (upClicksCounter>2) upClicksCounter=0;
-        if (upClicksCounter==0)
-        {
-          analogWrite(RedLedPin, 0);
-          analogWrite(GreenLedPin, 0);
-          analogWrite(BlueLedPin, 255/downClicksCounter);
-        }
-        if (upClicksCounter==1)
-        {
-          analogWrite(RedLedPin, 0);
-          analogWrite(GreenLedPin, 255/downClicksCounter);
-          analogWrite(BlueLedPin, 0);
-        }
-         if (upClicksCounter==2)
-        {
-          analogWrite(RedLedPin, 255/downClicksCounter);
-          analogWrite(GreenLedPin, 0);
-          analogWrite(BlueLedPin, 0);
-        }
-      }
-
-       if (downButton.clicks == 1) //short click
-      {
-          downClicksCounter++;
-          if (downClicksCounter>4) downClicksCounter=1;
-          if (downClicksCounter==4)
-          {
-          analogWrite(RedLedPin, 0);
-          analogWrite(GreenLedPin, 0);
-          analogWrite(BlueLedPin, 0);
-          }
-      }
-    };
-  */
-  //End of photo sessions block
+  
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
   irrecv.blink13(false);
   irrecv.enableIRIn(); // Start the receiver
@@ -464,7 +404,7 @@ String updateTemperatureString(float fDegrees, byte tempAdjust = 0);
 void loop() {
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
   if (irrecv.decode(&results)) {
-    Serial.println(results.value, HEX);
+    //Serial.println(results.value, HEX);
     irrecv.resume(); // Receive the next value
   }
 #endif
@@ -473,7 +413,7 @@ void loop() {
   {
     getRTCTime();
     setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
-    Serial.println(F("sync"));
+    //Serial.println(F("sync"));
   }
 
   p = playmusic(p);
@@ -508,10 +448,10 @@ void loop() {
     enteringEditModeTime = millis();
     menuPosition = menuPosition + 1;
     if (menuPosition == LastParent + 1) menuPosition = TimeIndex;
-    Serial.print(F("menuPosition="));
+    /*Serial.print(F("menuPosition="));
     Serial.println(menuPosition);
     Serial.print(F("value="));
-    Serial.println(value[menuPosition]);
+    Serial.println(value[menuPosition]);*/
 
     blinkMask = blinkPattern[menuPosition];
     if ((parent[menuPosition - 1] != 0) and (lastChild[parent[menuPosition - 1] - 1] == (menuPosition - 1))) //exit from edit mode
@@ -523,8 +463,8 @@ void loop() {
       }
       editMode = false;
       menuPosition = parent[menuPosition - 1] - 1;
-      Serial.print(F("Exit to parent position: "));
-      Serial.println(menuPosition);
+      /*Serial.print(F("Exit to parent position: "));
+      Serial.println(menuPosition);*/
       if (menuPosition == TimeIndex) setTime(value[TimeHoursIndex], value[TimeMintuesIndex], value[TimeSecondsIndex], day(), month(), year());
 #ifdef tubes8
       if (menuPosition == DateIndex) setTime(hour(), minute(), second(), value[DateDayIndex], value[DateMonthIndex], value[DateYearIndex]);
@@ -583,8 +523,8 @@ void loop() {
 #endif
     }
     menuPosition = firstChild[menuPosition];
-    Serial.print(F("MenuPosition="));
-    Serial.println(menuPosition);
+    /*Serial.print(F("MenuPosition="));
+    Serial.println(menuPosition);*/
     if (menuPosition == AlarmHourIndex) {
       value[Alarm01] = 1; dotPattern = B10000000;
     }
@@ -660,7 +600,7 @@ void loop() {
       tone1.play(1000, 100);
       RGBLedsOn = true;
       EEPROM.write(RGBLEDsEEPROMAddress, 1);
-      Serial.println(F("RGB=on"));
+      //Serial.println(F("RGB=on"));
       setLEDsFromEEPROM();
     }
     if (downButton.clicks < 0)
@@ -668,7 +608,7 @@ void loop() {
       tone1.play(1000, 100);
       RGBLedsOn = false;
       EEPROM.write(RGBLEDsEEPROMAddress, 0);
-      Serial.println(F("RGB=off"));
+      //Serial.println(F("RGB=off"));
     }
   }
 
@@ -826,7 +766,7 @@ void rotateFireWorks()
 String updateDisplayString()
 {
   static  unsigned long lastTimeStringWasUpdated;
-  if ((millis() - lastTimeStringWasUpdated) > 10)
+  if ((millis() - lastTimeStringWasUpdated) > 50)
   {
     lastTimeStringWasUpdated = millis();
     return getTimeNow();
@@ -837,8 +777,12 @@ String updateDisplayString()
 String getTimeNow()
 {
 #ifdef tubes8
-  if (value[hModeValueIndex] == 24) return PreZero(hour()) + PreZero(minute()) + PreZero(second()) + (millis() % 1000) / 100 + "0";
-  else return PreZero(hourFormat12()) + PreZero(minute()) + PreZero(second());
+  byte pseudoMillis[10]={0,2,4,6,8,1,3,5,7,9};
+  static int pMIndex=0;
+  pMIndex++;
+  if (pMIndex>9) pMIndex=0;
+  if (value[hModeValueIndex] == 24) return PreZero(hour()) + PreZero(minute()) + PreZero(second()) + (millis() % 1000) / 100 + pseudoMillis[pMIndex];
+  else return PreZero(hourFormat12()) + PreZero(minute()) + PreZero(second()) + (millis() % 1000) / 100 + pseudoMillis[pMIndex];
 #endif
 #ifdef tubes6
   if (value[hModeValueIndex] == 24) return PreZero(hour()) + PreZero(minute()) + PreZero(second());
@@ -848,9 +792,11 @@ String getTimeNow()
 
 void doTest()
 {
-  Serial.print(F("Firmware version: "));
+  Serial.print(F("Firmware: "));
   Serial.println(FirmwareVersion.substring(1, 2) + "." + FirmwareVersion.substring(2, 5));
-  Serial.println(F("Start Test"));
+  Serial.println(HardwareVersion);
+  Serial.println(freeRam());
+  //Serial.println(F("Test"));
 
   p = song;
   parseSong(p);
@@ -864,8 +810,6 @@ void doTest()
   analogWrite(BlueLedPin, 255);
   delay(1000);
   //while(1);
-  Serial.print("Free ram = ");
-  Serial.println(freeRam());
 #ifdef tubes8
   String testStringArray[11] = {"00000000", "11111111", "22222222", "33333333", "44444444", "55555555", "66666666", "77777777", "88888888", "99999999", ""};
   testStringArray[10] = FirmwareVersion + "00";
@@ -875,8 +819,8 @@ void doTest()
   testStringArray[10] = FirmwareVersion;
 #endif
   //testStringArray[12]="00"+PreZero(celsius)+"00";
-  Serial.print(F("Temp = "));
-  Serial.println(celsius);
+  //Serial.print(F("Temp = "));
+  //Serial.println(celsius);
 
   int dlay = 500;
   bool test = 1;
@@ -886,28 +830,23 @@ void doTest()
   bool digitsLock = false;
   while (test)
   {
-    if (digitalRead(pinDown) == 0) digitsLock = true;
-    if (digitalRead(pinUp) == 0) digitsLock = false;
+    if (digitalRead(pinDown)==0) digitsLock=true;
+    if (digitalRead(pinUp)==0) digitsLock=false;
 
-    for (byte i = 0; i < 11; i++)
-    {
-      if ((millis() - startOfTest) > dlay)
-      {
-        startOfTest = millis();
-        if (!digitsLock) strIndex = strIndex + 1;
-        if (strIndex == 10) dlay = 3000;
-        if (strIndex == 11) test = 0;
-
-        stringToDisplay = testStringArray[strIndex];
-        Serial.println(stringToDisplay);
-        doIndication();
+    if ((millis()-startOfTest)>dlay) 
+     {
+       startOfTest=millis();
+       if (!digitsLock) strIndex=strIndex+1;
+       if (strIndex==10) dlay=3000;
+       if (strIndex==11) break;
+       stringToDisplay=testStringArray[strIndex];
+       //Serial.println(stringToDisplay);
       }
-    }
-    delayMicroseconds(2000);
-  };
+    doIndication();  
+   }
 
-  Serial.println(F("Stop Test"));
-  // while(1);
+   testDS3231TempSensor();
+  
 }
 
 void doDotBlink()
@@ -1007,15 +946,15 @@ int extractDigits(int b)
 
 void injectDigits(byte b, int value)
 {
-  Serial.println(value);
+  //Serial.println(value);
   value=abs(value);
-  Serial.println(value);
+  //Serial.println(value);
     if (b == B00000011) stringToDisplay = PreZero(value) + stringToDisplay.substring(2);
     if (b == B00001100) stringToDisplay = stringToDisplay.substring(0, 2) + PreZero(value) + stringToDisplay.substring(4);
-    if (b == B00110000) stringToDisplay = stringToDisplay.substring(0, 4) + PreZero(value);
+    if (b == B00110000) stringToDisplay = stringToDisplay.substring(0, 4) + PreZero(value) + stringToDisplay.substring(6);
     if (b == B11110000) stringToDisplay = stringToDisplay.substring(0, 4) + PreZero(value);
     if (b == B11000000) stringToDisplay = stringToDisplay.substring(0, 6) + PreZero(value);
-  Serial.println(stringToDisplay);
+  //Serial.println(stringToDisplay);
 }
 
 bool isValidDate()
@@ -1200,10 +1139,10 @@ void incrementValue()
       else /*digitalWrite(pinUpperDots, LOW); */ dotPattern = B00000000; //turn off all dots
     }
     injectDigits(blinkMask, value[menuPosition]);
-    Serial.print("upValue=");
+    /*Serial.print("upValue=");
     Serial.println(value[menuPosition]);
     Serial.print("dotPattern=");
-    Serial.println(dotPattern, BIN);
+    Serial.println(dotPattern, BIN);*/
   }
 }
 
@@ -1220,10 +1159,10 @@ void dicrementValue()
       else /*digitalWrite(pinUpperDots, LOW);*/ dotPattern = B00000000; //turn off upper dots
     }
     injectDigits(blinkMask, value[menuPosition]);
-    Serial.print("downValue=");
+    /*Serial.print("downValue=");
     Serial.println(value[menuPosition]);
     Serial.print("dotPattern=");
-    Serial.println(dotPattern, BIN);
+    Serial.println(dotPattern, BIN);*/
   }
 }
 
@@ -1357,17 +1296,15 @@ String updateDateString()
 
 String updateTemperatureString(float fDegrees, byte tempAdjust)
 {
-  int iDegrees = round(fDegrees);
-  String strTemp;
+  static  unsigned long lastTimeTemperatureString=millis()+1100;
+  static String strTemp="00000000";
 
-  /*if (tempAdjust==0) {
-  strTemp = "0" + String(abs(iDegrees)) + "0";
-  if (abs(iDegrees) < 1000) strTemp = "00" + String(abs(iDegrees)) + "0";
-  if (abs(iDegrees) < 100) strTemp = "000" + String(abs(iDegrees)) + "0";
-  if (abs(iDegrees) < 10) strTemp = "0000" + String(abs(iDegrees)) + "0";
-  }
-  else
-  {*/
+  if (!TempPresent) return strTemp;
+  
+  if ((millis() - lastTimeTemperatureString) > 1000)
+  {
+    lastTimeTemperatureString = millis();
+    int iDegrees = round(fDegrees);
     if (value[DegreesFormatIndex] == CELSIUS)
     {
       strTemp = "0" + String(abs(iDegrees)) + "0";
@@ -1381,33 +1318,47 @@ String updateTemperatureString(float fDegrees, byte tempAdjust)
       if (abs(iDegrees) < 100) strTemp = "000" + String(abs(iDegrees)/10) + PreZero(value[TempAdjustIndex]);
       if (abs(iDegrees) < 10) strTemp = "0000" + String(abs(iDegrees)/10) + PreZero(value[TempAdjustIndex]);
     }
-  //}
-#ifdef tubes8
-  strTemp= ""+strTemp+"00";
-#endif
-  return strTemp;
  
+    #ifdef tubes8
+      strTemp= ""+strTemp+"00";
+    #endif
+    return strTemp;
+  }
+  return strTemp;
 }
 
 float getTemperature (boolean bTempFormat)
 {
-  byte TempRawData[2];
-  ds.reset();
-  ds.write(0xCC); //skip ROM command
-  ds.write(0x44); //send make convert to all devices
-  ds.reset();
-  ds.write(0xCC); //skip ROM command
-  ds.write(0xBE); //send request to all devices
+  static float fDegrees;
+  static int iterator=0;
+  static byte TempRawData[2];
 
-  TempRawData[0] = ds.read();
-  TempRawData[1] = ds.read();
-  int16_t raw = (TempRawData[1] << 8) | TempRawData[0];
-  float celsius = (float)raw / 16.0;
-  celsius = celsius + (float)value[TempAdjustIndex]/10;//users adjustment
-  float fDegrees;
-  if (!bTempFormat) fDegrees = celsius * 10;
-  else fDegrees = (celsius * 1.8 + 32.0) * 10;
-  //fDegrees=fDegrees-28.0;
+  if (TempPresent==false) return 0;
+   
+  switch (iterator) 
+  {
+    case 0: ds.reset(); break;
+    case 1: ds.write(0xCC); break; //skip ROM command
+    case 2: ds.write(0x44); break; //send make convert to all devices
+    case 3: ds.reset(); break;
+    case 4: ds.write(0xCC); break; //skip ROM command
+    case 5: ds.write(0xBE); break; //send request to all devices
+    case 6: TempRawData[0] = ds.read(); break;
+    case 7: TempRawData[1] = ds.read(); break;
+    default:  break;
+  }
+  
+ if (iterator == 7)
+  {
+    int16_t raw = (TempRawData[1] << 8) | TempRawData[0];
+    if (raw == -1) raw = 0;
+    float celsius = (float)raw / 16.0;
+    celsius = celsius + (float)value[TempAdjustIndex]/10;//users adjustment
+    if (!bTempFormat) fDegrees = celsius * 10;
+    else fDegrees = (celsius * 1.8 + 32.0) * 10;
+  }
+  iterator++;
+  if (iterator==8) iterator=0;
   return fDegrees;
 }
 
@@ -1421,3 +1372,24 @@ void doLEDsBlink()
   }
 }
 
+void testDS3231TempSensor()
+{
+  int8_t DS3231InternalTemperature=0;
+  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.write(0x11);
+  Wire.endTransmission();
+
+  Wire.requestFrom(DS1307_ADDRESS, 2);
+  DS3231InternalTemperature=Wire.read();
+  Serial.print(F("DS3231_T="));
+  Serial.println(DS3231InternalTemperature);
+  if ((DS3231InternalTemperature<5) || (DS3231InternalTemperature>60)) 
+  {
+    Serial.println(F("Faulty DS3231!"));
+    for (int i=0; i<5; i++)
+    {
+      tone1.play(1000, 1000);
+      delay(2000);
+    }
+  }
+}
