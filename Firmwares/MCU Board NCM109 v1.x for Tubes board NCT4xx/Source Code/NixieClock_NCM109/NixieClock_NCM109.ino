@@ -1,7 +1,9 @@
- const String FirmwareVersion = "015200";
+ const String FirmwareVersion = "015300";
 #define HardwareVersion "MCU109 for 4XX Series."
 //Format                _X.XX__
 //NIXIE CLOCK NCM109 4xx v1.0 by GRA & AFCH (fominalec@gmail.com)
+//1.53
+//Dots sync with seconds
 //1.52 01.24.2020
 //Added: DS3231 internal temperature sensor self test: 5 beeps if fail.
 //1.5 04.08.2018
@@ -684,13 +686,13 @@ void rotateFireWorks()
 
 String updateDisplayString()
 {
-  static  unsigned long lastTimeStringWasUpdated;
-  if ((millis() - lastTimeStringWasUpdated) > 10)
+  static int prevS=-1;
+
+  if (second()!=prevS)
   {
-    lastTimeStringWasUpdated = millis();
+    prevS=second();
     return getTimeNow();
-  }
-  return stringToDisplay;
+  } else return stringToDisplay;
 }
 
 String getTimeNow()
@@ -769,21 +771,8 @@ void doTest()
 
 void doDotBlink()
 {
-  static unsigned long lastTimeBlink = millis();
-  static bool dotState = 0;
-  if ((millis() - lastTimeBlink) > 1000)
-  {
-    lastTimeBlink = millis();
-    dotState = !dotState;
-    if (dotState)
-    {
-      dotPattern = B11000000;
-    }
-    else
-    {
-      dotPattern = B00000000;
-    }
-  }
+  if (second()%2 == 0) dotPattern = B11000000;
+    else dotPattern = B00000000;
 }
 
 void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w)
