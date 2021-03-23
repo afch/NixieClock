@@ -1,5 +1,7 @@
-//driver for NCM107+NCT318+NCT818 (registers HV5122)
+//driver for NCM107+NCT318+NCT818 (registers HV5122 and HV5122)
 //ONLY FOR 1K revision!!!!
+//1.1 22.12.2020
+//The driver has been changed to support BOTH HV5122 and HV 5222 (switching using resistor R5222 Arduino pin No. 8)
 //driver version 1.0
 //1 on register's output will turn on a digit 
 
@@ -41,10 +43,19 @@ void doIndication()
 
   digitalWrite(LEpin, LOW);    
 
-  SPI.transfer(Var32>>24);
-  SPI.transfer(Var32>>16);
-  SPI.transfer(Var32>>8);
-  SPI.transfer(Var32);
+  if (HV5222)
+  {
+    SPI.transfer(Var32); 
+    SPI.transfer(Var32>>8); 
+    SPI.transfer(Var32>>16); 
+    SPI.transfer(Var32>>24);
+  } else
+  {
+    SPI.transfer(Var32>>24); 
+    SPI.transfer(Var32>>16); 
+    SPI.transfer(Var32>>8);  
+    SPI.transfer(Var32);     
+  }
  //-------------------------------------------------------------------------
 
  //-------- REG 1 ----------------------------------------------- 
@@ -65,10 +76,19 @@ void doIndication()
   if (UD) Var32&=~UpperDotsMask; 
     else  Var32|=UpperDotsMask; 
 
-  SPI.transfer(Var32>>24);
-  SPI.transfer(Var32>>16);
-  SPI.transfer(Var32>>8);
-  SPI.transfer(Var32);
+  if (HV5222)
+  {
+    SPI.transfer(Var32); 
+    SPI.transfer(Var32>>8); 
+    SPI.transfer(Var32>>16); 
+    SPI.transfer(Var32>>24);
+  } else
+  {
+    SPI.transfer(Var32>>24); 
+    SPI.transfer(Var32>>16); 
+    SPI.transfer(Var32>>8);  
+    SPI.transfer(Var32);     
+  }
  //-------------------------------------------------------------------------
 
  //-------- REG 0 ----------------------------------------------- 
@@ -89,10 +109,19 @@ void doIndication()
   if (UD) Var32&=~UpperDotsMask; 
     else  Var32|=UpperDotsMask; 
      
-  SPI.transfer(Var32>>24);
-  SPI.transfer(Var32>>16);
-  SPI.transfer(Var32>>8);
-  SPI.transfer(Var32);
+  if (HV5222)
+  {
+    SPI.transfer(Var32); 
+    SPI.transfer(Var32>>8); 
+    SPI.transfer(Var32>>16); 
+    SPI.transfer(Var32>>24);
+  } else
+  {
+    SPI.transfer(Var32>>24); 
+    SPI.transfer(Var32>>16); 
+    SPI.transfer(Var32>>8);  
+    SPI.transfer(Var32);     
+  }
 
   digitalWrite(LEpin, HIGH);    
 //-------------------------------------------------------------------------
@@ -150,4 +179,14 @@ word moveMask()
     if (tubeCounter == tubesQuantity) tubeCounter = 0;
   }
   return onoffTubeMask;
+}
+
+void SPI_Init()
+{
+  pinMode(RHV5222PIN, INPUT_PULLUP);
+  HV5222=!digitalRead(RHV5222PIN);
+  SPI.begin(); //
+  if (HV5222)
+    SPI.beginTransaction(SPISettings(2000000, LSBFIRST, SPI_MODE2));
+    else SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE2));
 }

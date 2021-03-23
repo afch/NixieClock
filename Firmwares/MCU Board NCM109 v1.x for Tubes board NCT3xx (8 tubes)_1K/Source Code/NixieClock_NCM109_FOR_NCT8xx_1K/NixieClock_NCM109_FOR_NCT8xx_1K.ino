@@ -1,7 +1,12 @@
-const String FirmwareVersion = "016500";
+const String FirmwareVersion = "016700";
 //Format                _X.XX__
 #define HardwareVersion "MCU109 for 3XX on 8 tubes (1K)"
 //NIXIE CLOCK NCM107, NCM109(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+//1.67 22.12.2020 
+// The driver has been changed to support BOTH HV5122 and HV 5222 (switching using resistor R5222 Arduino pin No. 8)
+//SPI initialization moved to SPI_Init()
+//1.66 08.04.2020
+//Fixed: Seconds setting bug
 //1.65 01.24.2020
 //Added: DS3231 internal temperature sensor self test: 5 beeps if fail.
 //1.64 15/11/2019
@@ -304,11 +309,13 @@ void setup()
 
   // SPI setup
 
-  SPI.begin(); //
+ /* SPI.begin(); //
   SPI.setDataMode (SPI_MODE2); // Mode 2 SPI // судя по данным осциллографа нужно использовать этот режим
-  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz
+  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz */
 
-#define SS 25;
+  SPI_Init();
+
+  #define SS 25;
   //buttons pins inits
   pinMode(pinSet,  INPUT_PULLUP);
   pinMode(pinUp,  INPUT_PULLUP);
@@ -844,7 +851,7 @@ void doTest()
    }
 
    testDS3231TempSensor();
-  //Serial.println(F("Stop"));
+  
 }
 
 void doDotBlink()
@@ -949,7 +956,7 @@ void injectDigits(byte b, int value)
   //Serial.println(value);
     if (b == B00000011) stringToDisplay = PreZero(value) + stringToDisplay.substring(2);
     if (b == B00001100) stringToDisplay = stringToDisplay.substring(0, 2) + PreZero(value) + stringToDisplay.substring(4);
-    if (b == B00110000) stringToDisplay = stringToDisplay.substring(0, 4) + PreZero(value);
+    if (b == B00110000) stringToDisplay = stringToDisplay.substring(0, 4) + PreZero(value) + stringToDisplay.substring(6);
     if (b == B11110000) stringToDisplay = stringToDisplay.substring(0, 4) + PreZero(value);
     if (b == B11000000) stringToDisplay = stringToDisplay.substring(0, 6) + PreZero(value);
   //Serial.println(stringToDisplay);
@@ -1296,6 +1303,9 @@ String updateTemperatureString(float fDegrees, byte tempAdjust)
 {
   static  unsigned long lastTimeTemperatureString=millis()+1100;
   static String strTemp="00000000";
+
+  if (!TempPresent) return strTemp;
+  
   if ((millis() - lastTimeTemperatureString) > 1000)
   {
     lastTimeTemperatureString = millis();
