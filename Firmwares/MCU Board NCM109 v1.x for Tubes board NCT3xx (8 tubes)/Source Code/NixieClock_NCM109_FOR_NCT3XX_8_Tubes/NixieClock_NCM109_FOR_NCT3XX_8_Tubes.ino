@@ -1,7 +1,7 @@
 const String FirmwareVersion = "016400";
 //Format                _X.XX__
 #define HardwareVersion "NCM109 for 3XX Series on 8 tubes"
-//NIXIE CLOCK NCM107/NCM107 v1.1(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+//NIXIE CLOCK NCM107/NCM109 v1.1(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
 //1.64 09/02/2022
 //Fixed: Seconds settings bug
 //1.63 05/11/2017
