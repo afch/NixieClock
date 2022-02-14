@@ -1,7 +1,9 @@
-const String FirmwareVersion = "016700";
+const String FirmwareVersion = "016800";
 //Format                _X.XX__
 #define HardwareVersion "MCU109 for 3XX on 8 tubes US(1K)" 
 //NIXIE CLOCK NCM107, NCM109(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+//1.68 14.02.2020
+//Improvements: freed up some memory
 //1.67 22.12.2020 
 // The driver has been changed to support BOTH HV5122 and HV 5222 (switching using resistor R5222 Arduino pin No. 8)
 //SPI initialization moved to SPI_Init()
@@ -53,30 +55,25 @@ const String FirmwareVersion = "016700";
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 #include <IRremote.h>
 #endif
-//#include "doIndication818.ino"
 
 boolean UD, LD; // DOTS control;
-
-//#define SS 25;
-//OneWire  ds(10);
 
 byte data[12];
 byte addr[8];
 int celsius, fahrenheit;
 
-//const byte LEpin=10; //pin Latch Enabled data accepted while HI level
-const byte HIZpin = 8; //pin Z state in registers outputs (while LOW level)
-const byte DHVpin = 5; // off/on MAX1771 Driver  Hight Voltage(DHV) 110-220V
-const byte RedLedPin = 9; //MCU WDM output for red LEDs 9-g
-const byte GreenLedPin = 6; //MCU WDM output for green LEDs 6-b
-const byte BlueLedPin = 3; //MCU WDM output for blue LEDs 3-r
-const byte pinSet = A0;
-const byte pinUp = A2;
-const byte pinDown = A1;
-const byte pinBuzzer = 2;
-const byte pinUpperDots = 12; //HIGH value light a dots
-const byte pinLowerDots = 8; //HIGH value light a dots
-//const uint16_t fpsLimit = 16666; // 1/60*1.000.000 //limit maximum refresh rate on 60 fps
+#define HIZpin 8 //pin Z state in registers outputs (while LOW level)
+#define DHVpin 5 // off/on MAX1771 Driver  Hight Voltage(DHV) 110-220V
+#define RedLedPin 9 //MCU WDM output for red LEDs 9-g
+#define GreenLedPin 6 //MCU WDM output for green LEDs 6-b
+#define BlueLedPin 3 //MCU WDM output for blue LEDs 3-r
+#define pinSet A0
+#define pinUp A2
+#define pinDown A1
+#define pinBuzzer 2
+#define pinUpperDots 12 //HIGH value light a dots
+#define pinLowerDots 8 //HIGH value light a dots
+
 bool RTC_present;
 #ifdef BOARD_MODEL_MCU107
 const byte pinTemp = A3;
@@ -146,13 +143,13 @@ int RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, RTC_day_o
 //-------------------------------0--------1--------2-------3--------4---------5--------6--------7--------8--------9--------10-------11- ------12-------13-------14-------15---------16-------17-----------18-----------19----------20-------21---------------22
 //                     names:  Time,   Date,   Alarm,   12/24, Temperature,ModeChange, LEDs   hours,   mintues, seconds,  day,    month,   year,    hour,   minute,   second alarm01  hour_format DegreesFormat  TempAdj  ModeChangeIn  ModeChangeOut  LEDsBrightness 
 //                               1        1        1       1        1         1        1        1        1        1        1        1        1        1        1        1        1          1             1           1         1           1
-int parent[SettingsCount] = {NoParent, NoParent, NoParent, NoParent, NoParent,NoParent,NoParent,1,       1,       1,       2,       2,       2,       3,       3,       3,       3,         4,            5,          5,        6,          6,              7};
-int firstChild[SettingsCount] = {7,      10,       13,     17,      18,       20,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
-int lastChild[SettingsCount] = { 9,      12,       16,     17,      19,       21,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
-int value[SettingsCount] = {     0,       0,       0,      0,       0,        0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        24,            0,          0,        1,          5,              99};
-int maxValue[SettingsCount] = {  0,       0,       0,      0,       0,        0,       0,       23,      59,      59,      12,      31,      99,      23,      59,      59,      1,        24,       FAHRENHEIT,      99,       99,         99,             99};
-int minValue[SettingsCount] = {  0,       0,       0,      12,      0,        0,       0,       00,      00,      00,       1,       1,      00,      00,      00,      00,      0,        12,         CELSIUS,      -99,       0,          0,              0};
-int blinkPattern[SettingsCount] = {
+byte parent[SettingsCount] = {NoParent, NoParent, NoParent, NoParent, NoParent,NoParent,NoParent,1,       1,       1,       2,       2,       2,       3,       3,       3,       3,         4,            5,          5,        6,          6,              7};
+byte firstChild[SettingsCount] = {7,      10,       13,     17,      18,       20,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
+byte lastChild[SettingsCount] = { 9,      12,       16,     17,      19,       21,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
+byte value[SettingsCount] = {     0,       0,       0,      0,       0,        0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        24,            0,          0,        1,          5,              99};
+byte maxValue[SettingsCount] = {  0,       0,       0,      0,       0,        0,       0,       23,      59,      59,      12,      31,      99,      23,      59,      59,      1,        24,       FAHRENHEIT,      99,       99,         99,             99};
+byte minValue[SettingsCount] = {  0,       0,       0,      12,      0,        0,       0,       00,      00,      00,       1,       1,      00,      00,      00,      00,      0,        12,         CELSIUS,      -99,       0,          0,              0};
+byte blinkPattern[SettingsCount] = {
   B00000000, //0
   B00000000, //1
   B00000000, //2
@@ -290,29 +287,21 @@ void setup()
   if (EEPROM.read(ModeChangeInEEPROMAddress) != 255) value[ModeChangeInIndex] = EEPROM.read(ModeChangeInEEPROMAddress);
   if (EEPROM.read(ModeChangeOutEEPROMAddress) != 255) value[ModeChangeOutIndex] = EEPROM.read(ModeChangeOutEEPROMAddress);
   if (EEPROM.read(LEDsBrightnessEEPROMAddress) != 255) value[LEDsBrightnessIndex] = EEPROM.read(LEDsBrightnessEEPROMAddress);
-  /*Serial.println(F("Get TempAdjust="));
-  Serial.println(tInt);
-  
-  Serial.print(F("DegreesFormatIndex "));
-  Serial.println(value[DegreesFormatEEPROMAddress]);*/
+
+  modesChangePeriod = value[ModeChangeInIndex] * 1000;
 
   pinMode(RedLedPin, OUTPUT);
   pinMode(GreenLedPin, OUTPUT);
   pinMode(BlueLedPin, OUTPUT);
 
-  tone1.begin(pinBuzzer);  //uncomment after photo session
-  song = parseSong(song); //uncomment after photo session
+  tone1.begin(pinBuzzer);  
+  song = parseSong(song); 
 
   pinMode(LEpin, OUTPUT);
   pinMode(HIZpin, OUTPUT);
   digitalWrite(HIZpin, LOW);
 
   // SPI setup
-
- /* SPI.begin(); //
-  SPI.setDataMode (SPI_MODE2); // Mode 2 SPI // судя по данным осциллографа нужно использовать этот режим
-  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz */
-
   SPI_Init();
 
   #define SS 25;
@@ -1207,7 +1196,7 @@ void modesChanger()
   if (value[ModeChangeInIndex] == 0) return;
   static unsigned long lastTimeModeChanged = millis();
   static unsigned long lastTimeAntiPoisoningIterate = millis();
-  static int transnumber = 0;
+  static int transnumber = 2;
   if ((millis() - lastTimeModeChanged) > modesChangePeriod)
   {
     lastTimeModeChanged = millis();
@@ -1253,7 +1242,7 @@ String antiPoisoning2(String fromStr, String toStr)
   //byte fromDigits[6];
   static byte toDigits[tubesQty];
   static byte currentDigits[tubesQty];
-  static byte iterationCounter = 0;
+  static byte iterationCounter = 10;
   if (!transactionInProgress)
   {
     transactionInProgress = true;
@@ -1388,8 +1377,8 @@ void testDS3231TempSensor()
 
   Wire.requestFrom(DS1307_ADDRESS, 2);
   DS3231InternalTemperature=Wire.read();
-  Serial.print(F("DS3231_T="));
-  Serial.println(DS3231InternalTemperature);
+  //Serial.print(F("DS3231_T="));
+  //Serial.println(DS3231InternalTemperature);
   if ((DS3231InternalTemperature<5) || (DS3231InternalTemperature>60)) 
   {
     Serial.println(F("Faulty DS3231!"));
