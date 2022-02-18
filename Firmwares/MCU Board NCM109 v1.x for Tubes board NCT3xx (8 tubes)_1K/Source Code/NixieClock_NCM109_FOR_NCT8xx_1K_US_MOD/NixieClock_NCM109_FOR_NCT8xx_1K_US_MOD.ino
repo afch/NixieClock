@@ -1,7 +1,9 @@
-const String FirmwareVersion = "016800";
+const String FirmwareVersion = "016900";
 //Format                _X.XX__
 #define HardwareVersion "MCU109 for 3XX on 8 tubes US(1K)" 
 //NIXIE CLOCK NCM107, NCM109(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+//1.69 18.02.2020
+//Fixed: min value bug
 //1.68 14.02.2020
 //Improvements: freed up some memory
 //1.67 22.12.2020 
@@ -146,7 +148,7 @@ int RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, RTC_day_o
 byte parent[SettingsCount] = {NoParent, NoParent, NoParent, NoParent, NoParent,NoParent,NoParent,1,       1,       1,       2,       2,       2,       3,       3,       3,       3,         4,            5,          5,        6,          6,              7};
 byte firstChild[SettingsCount] = {7,      10,       13,     17,      18,       20,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
 byte lastChild[SettingsCount] = { 9,      12,       16,     17,      19,       21,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
-byte value[SettingsCount] = {     0,       0,       0,      0,       0,        0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        24,            0,          0,        1,          5,              99};
+int  value[SettingsCount] = {     0,       0,       0,      0,       0,        0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        24,            0,          0,        1,          5,              99};
 byte maxValue[SettingsCount] = {  0,       0,       0,      0,       0,        0,       0,       23,      59,      59,      12,      31,      99,      23,      59,      59,      1,        24,       FAHRENHEIT,      99,       99,         99,             99};
 byte minValue[SettingsCount] = {  0,       0,       0,      12,      0,        0,       0,       00,      00,      00,       1,       1,      00,      00,      00,      00,      0,        12,         CELSIUS,      -99,       0,          0,              0};
 byte blinkPattern[SettingsCount] = {
