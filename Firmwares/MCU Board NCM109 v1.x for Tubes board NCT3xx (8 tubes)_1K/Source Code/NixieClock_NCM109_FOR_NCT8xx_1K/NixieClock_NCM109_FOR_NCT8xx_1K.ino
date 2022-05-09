@@ -1,8 +1,10 @@
-const String FirmwareVersion = "016900";
+const String FirmwareVersion = "017000";
 //Format                _X.XX__
 #define HardwareVersion "MCU109 for 3XX on 8 tubes (1K)"
 //NIXIE CLOCK NCM107, NCM109(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
-//1.69 18.02.2020
+//1.70 09.05.2022
+//Fixed: year value bug
+//1.69 18.02.2022
 //Fixed: min value bug
 //1.68 14.02.2022
 //Improvements: freed up some memory
@@ -154,8 +156,8 @@ byte parent[SettingsCount] = {NoParent, NoParent, NoParent, NoParent, NoParent,N
 byte firstChild[SettingsCount] = {7,      10,       13,     17,      18,       20,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
 byte lastChild[SettingsCount] = { 9,      12,       16,     17,      19,       21,      22,      0,       0,       0,       0,       0,       0,       0,       0,       0,       0,         0,            0,          0,      NoChild,      NoChild,        NoChild};
 int  value[SettingsCount] = {     0,       0,       0,      0,       0,        0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,       0,        24,            0,          0,        1,          5,              99};
-byte maxValue[SettingsCount] = {  0,       0,       0,      0,       0,        0,       0,       23,      59,      59,      31,      12,      99,      23,      59,      59,      1,        24,       FAHRENHEIT,      99,       99,         99,             99};
-byte minValue[SettingsCount] = {  0,       0,       0,      12,      0,        0,       0,       00,      00,      00,       1,       1,      00,      00,      00,      00,      0,        12,         CELSIUS,      -99,       0,          0,              0};
+int maxValue[SettingsCount] = {   0,       0,       0,      0,       0,        0,       0,       23,      59,      59,      31,      12,      99,      23,      59,      59,      1,        24,       FAHRENHEIT,      99,       99,         99,             99};
+int minValue[SettingsCount] = {   0,       0,       0,      12,      0,        0,       0,       00,      00,      00,       1,       1,      00,      00,      00,      00,      0,        12,         CELSIUS,      -99,       0,          0,              0};
 byte blinkPattern[SettingsCount] = {
   B00000000, //0
   B00000000, //1
@@ -804,7 +806,7 @@ void doTest()
   Serial.print(F("Firmware: "));
   Serial.println(FirmwareVersion.substring(1, 2) + "." + FirmwareVersion.substring(2, 5));
   Serial.println(HardwareVersion);
-  Serial.println(freeRam());
+  //Serial.println(freeRam());
   //Serial.println(F("Test"));
 
   p = song;
@@ -1191,12 +1193,12 @@ void checkAlarmTime()
   }
 }
 
-int freeRam ()
+/*int freeRam ()
 {
   extern int __heap_start, *__brkval;
   int v;
   return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
-}
+}*/
 
 void setLEDsFromEEPROM()
 {
