@@ -1,7 +1,15 @@
- const String FirmwareVersion = "015300";
+const String FirmwareVersion = "015700";
 #define HardwareVersion "MCU109 for 4XX Series."
 //Format                _X.XX__
 //NIXIE CLOCK NCM109 4xx v1.0 by GRA & AFCH (fominalec@gmail.com)
+//1.57 18.08.2022
+//Fixed: RV-3028-C7 init
+//1.56 06.06.2022 
+//Added: Support RV-3028-C7 RTC
+//1.55 22.09.2020 freed up some memory
+//1.54 15.05.2020
+//The driver has been changed to support BOTH HV5122 and HV5222 registers (switching using resistor R5222 Arduino pin No. 8)
+//SPI initialization moved to function SPI_Init()
 //1.53
 //Dots sync with seconds
 //1.52 01.24.2020
@@ -82,7 +90,10 @@ byte dotPattern = B00000000; //bit mask for separeting dots (1 - on, 0 - off)
 //B10000000 - upper dots
 //B01000000 - lower dots
 
-#define DS1307_ADDRESS 0x68
+#define DS1307_ADDRESS  0x68 //DS3231 
+#define RV_3028_ADDRESS 0x52 //RV-3028-C7
+uint8_t RTC_Address=DS1307_ADDRESS;
+
 byte zero = 0x00; //workaround for issue #527
 int RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, RTC_day_of_week;
 
@@ -246,13 +257,13 @@ void setup()
   if (EEPROM.read(AlarmArmedEEPROMAddress) == 255) value[Alarm01] = 0; else value[Alarm01] = EEPROM.read(AlarmArmedEEPROMAddress);
   if (EEPROM.read(LEDsLockEEPROMAddress) == 255) LEDsLock = false; else LEDsLock = EEPROM.read(LEDsLockEEPROMAddress);
   if (EEPROM.read(DegreesFormatEEPROMAddress) == 255) value[DegreesFormatIndex] = CELSIUS; else value[DegreesFormatIndex] = EEPROM.read(DegreesFormatEEPROMAddress);
-  Serial.print(F("Degr. format="));
-  Serial.println(value[DegreesFormatIndex]);
+  //Serial.print(F("Degr. format="));
+  //Serial.println(value[DegreesFormatIndex]);
   int tInt;
   EEPROM.get(TempAdjustEEPROMAddress, tInt);
   if (EEPROM.read(TempAdjustEEPROMAddress) == 255) value[TempAdjustIndex] = 0; else value[TempAdjustIndex] = tInt;
-  Serial.print(F("TempAdj="));
-  Serial.println(value[TempAdjustIndex]);
+  //Serial.print(F("TempAdj="));
+  //Serial.println(value[TempAdjustIndex]);
   if (EEPROM.read(DateFormatEEPROMAddress) != 255) value[DateFormatIndex] = EEPROM.read(DateFormatEEPROMAddress);
   pinMode(RedLedPin, OUTPUT);
   pinMode(GreenLedPin, OUTPUT);
@@ -266,13 +277,8 @@ void setup()
   digitalWrite(HIZpin, LOW);
 
   // SPI setup
-
-  SPI.begin(); //
-  SPI.setDataMode (SPI_MODE2); // Mode 2 SPI // судя по данным осциллографа нужно использовать этот режим
-  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz
-  //Serial.println(SPCR, BIN);
-  //SPCR=B00111111;
-  //Serial.println(SPCR, BIN);
+  SPI_Init();
+  
 #define SS 25;
   //buttons pins inits
   pinMode(pinSet,  INPUT_PULLUP);
@@ -358,7 +364,7 @@ void loop() {
  {
   getRTCTime();
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
-  Serial.println(F("sync"));
+  //Serial.println(F("sync"));
  }
 
   p = playmusic(p);
@@ -393,10 +399,10 @@ void loop() {
     enteringEditModeTime = millis();
     menuPosition = menuPosition + 1;
     if (menuPosition == LastParent + 1) menuPosition = TimeIndex;
-    Serial.print(F("menuPosition="));
+    /*Serial.print(F("menuPosition="));
     Serial.println(menuPosition);
     Serial.print(F("value="));
-    Serial.println(value[menuPosition]);
+    Serial.println(value[menuPosition]);*/
 
     blinkMask = blinkPattern[menuPosition];
     if ((parent[menuPosition - 1] != 0) and (lastChild[parent[menuPosition - 1] - 1] == (menuPosition - 1)))
@@ -712,7 +718,7 @@ void doTest()
   Serial.print(F("Firmware version: "));
   Serial.println(FirmwareVersion.substring(1,2)+"."+FirmwareVersion.substring(2,5));
   Serial.println(HardwareVersion);
-  Serial.println(F("Start Test"));
+  //Serial.println(F("Start Test"));
   
   p=song;
   parseSong(p);
@@ -764,9 +770,9 @@ void doTest()
     doIndication();  
   }
 
-  testDS3231TempSensor();
+  RTC_Test();
    
-  Serial.println(F("Stop Test"));
+  //Serial.println(F("Stop Test"));
 }
 
 void doDotBlink()
@@ -777,7 +783,7 @@ void doDotBlink()
 
 void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w)
 {
-  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.beginTransmission(RTC_Address);
   Wire.write(zero); //stop Oscillator
 
   Wire.write(decToBcd(s));
@@ -806,11 +812,11 @@ byte bcdToDec(byte val)  {
 
 void getRTCTime()
 {
-  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.beginTransmission(RTC_Address);
   Wire.write(zero);
   Wire.endTransmission();
 
-  Wire.requestFrom(DS1307_ADDRESS, 7);
+  Wire.requestFrom(RTC_Address, 7);
 
   RTC_seconds = bcdToDec(Wire.read());
   RTC_minutes = bcdToDec(Wire.read());
@@ -1281,24 +1287,72 @@ float getTemperature (boolean bTempFormat)
   return fDegrees;
 }
 
-void testDS3231TempSensor()
+void RTC_Test()
 {
+  uint8_t errorCounter=0;
   int8_t DS3231InternalTemperature=0;
-  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.beginTransmission(RTC_Address);
   Wire.write(0x11);
   Wire.endTransmission();
 
-  Wire.requestFrom(DS1307_ADDRESS, 2);
+  Wire.requestFrom(RTC_Address, 2);
   DS3231InternalTemperature=Wire.read();
-  Serial.print(F("DS3231_T="));
-  Serial.println(DS3231InternalTemperature);
+  //Serial.print(F("DS3231_T="));
+  //Serial.println(DS3231InternalTemperature);
   if ((DS3231InternalTemperature<5) || (DS3231InternalTemperature>60)) 
   {
-    Serial.println(F("Faulty DS3231!"));
+    errorCounter++;
+    RTC_Address=RV_3028_ADDRESS;
+  }
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x28);
+  Wire.endTransmission();
+
+  Wire.requestFrom(RTC_Address, 1);
+
+  if (Wire.read() <= 0)
+  {
+    errorCounter++;
+  }
+  
+  if (errorCounter == 2)
+  {
+    Serial.println(F("Faulty RTC!"));
     for (int i=0; i<5; i++)
     {
       tone1.play(1000, 1000);
       delay(2000);
     }
+    return;
   }
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x0F);
+  Wire.write(0x08);
+  Wire.endTransmission(); //disable auto refresh
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x37);
+  Wire.write(0x1C);
+  Wire.endTransmission();//Level Switching Mode
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x27);
+  Wire.write(0x00);
+  Wire.endTransmission();//Update EEPROM 
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x27);
+  Wire.write(0x11);
+  Wire.endTransmission();//Update EEPROM 
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x0F);
+  Wire.write(0x00);
+  Wire.endTransmission(); //enable auto refresh
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x0E);
+  Wire.write(0x00);
+  Wire.endTransmission(); //reset RTC
 }
