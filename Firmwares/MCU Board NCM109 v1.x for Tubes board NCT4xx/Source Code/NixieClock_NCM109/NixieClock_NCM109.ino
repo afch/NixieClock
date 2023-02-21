@@ -2,7 +2,6 @@ const String FirmwareVersion = "015700";
 #define HardwareVersion "MCU109 for 4XX Series."
 //Format                _X.XX__
 //NIXIE CLOCK NCM109 4xx v1.0 by GRA & AFCH (fominalec@gmail.com)
-//1.57 18.08.2022
 //Fixed: RV-3028-C7 init
 //1.56 06.06.2022 
 //Added: Support RV-3028-C7 RTC
@@ -35,6 +34,9 @@ const String FirmwareVersion = "015700";
 //#define tubes8
 #define tubes6
 //#define tubes4
+
+#define HV5122
+#undef HV5222
 
 #include <SPI.h>
 #include <Wire.h>
@@ -184,7 +186,7 @@ ClickButton downButton(pinDown, LOW, CLICKBTN_PULLUP);
 Tone tone1;
 #define isdigit(n) (n >= '0' && n <= '9')
 //char *song = "MissionImp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d";
-char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8d#,8e,16p,8b,2a#,2p,16a,16g,16e,16d,2e";
+char *song = "PinkPanther:d=4,o=5,b=160:8d#,8e,2p,8f#,8g,2p,8d#,8e,16p,8f#,8g,16p,8c6,8b,16p,8e,8g,16p,8b,2a#,4p,10p,10a,10g,10e,10d,2e";
 //char *song="VanessaMae:d=4,o=6,b=70:32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32c7,32b,16c7,32g#,32p,32g#,32p,32f,32p,16f,32c,32p,32c,32p,32c7,32b,16c7,32g,32p,32g,32p,32d#,32p,32d#,32p,32c,32p,32c,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16g,8p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,16d7,32c7,32d7,32a#,32d7,32a,32d7,32g,32d7,32d7,32p,32d7,32p,32d7,32p,32g,32f,32d#,32d,32c,32d,32d#,32c,32d#,32f,16c";
 //char *song="DasBoot:d=4,o=5,b=100:d#.4,8d4,8c4,8d4,8d#4,8g4,a#.4,8a4,8g4,8a4,8a#4,8d,2f.,p,f.4,8e4,8d4,8e4,8f4,8a4,c.,8b4,8a4,8b4,8c,8e,2g.,2p";
 //char *song="Scatman:d=4,o=5,b=200:8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8b,16b,32p,8b,16b,32p,8b,2d6,16p,16c#.6,16p.,8d6,16p,16c#6,8b,16p,8f#,2p.,16c#6,8p,16d.6,16p.,16c#6,16b,8p,8f#,2p,32p,2d6,16p,16c#6,8p,16d.6,16p.,16c#6,16a.,16p.,8e,2p.,16c#6,8p,16d.6,16p.,16c#6,16a,8p,8e,2p,32p,16f#.6,16p.,16b.,16p.";
@@ -277,7 +279,13 @@ void setup()
   digitalWrite(HIZpin, LOW);
 
   // SPI setup
-  SPI_Init();
+  SPI.begin();
+#ifdef HV5122
+  SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE2)); //for HV5122
+#endif
+#ifdef HV5222
+  SPI.beginTransaction(SPISettings(2000000, LSBFIRST, SPI_MODE2)); //for HV5222
+#endif
   
 #define SS 25;
   //buttons pins inits
@@ -740,6 +748,10 @@ void doTest()
   #endif
   #ifdef tubes6
   String testStringArray[11]={"000000","111111","222222","333333","444444","555555","666666","777777","888888","999999",""};
+  testStringArray[10]=FirmwareVersion;
+  #endif
+  #ifdef tubes4
+  String testStringArray[11]={"0000","1111","2222","3333","4444","5555","6666","7777","8888","9999",""};
   testStringArray[10]=FirmwareVersion;
   #endif
   //testStringArray[12]="00"+PreZero(celsius)+"00";
