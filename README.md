@@ -21,8 +21,9 @@ https://youtu.be/DQZWPn0iAHw
 
 3. Compatibility:
 
-        NCM 109 is compatible with tubes boards: NCT 3xx, NCT 4xx series (NCT402, NCT404, NCT408, NCT482, NCT412-4, NCT412-6, NCT414-4, NCT414-6, 
-	NCT416, NCT417, NCT318, NCT818, NCT4573, NCT3566, NCT3566. 
+        NCM 109 is compatible with tubes boards: 
+	NCT 3xx, series NCT318 (6 Tubes IN-18), NCT818 (2 Tubes IN-18), NCT3566(6 Tubes Z5660, Z1042), NCT8566 (2 Tubes Z5660, ZM1042)
+	NCT 4xx series NCT402, NCT404, NCT408, NCT482, NCT412-4, NCT412-6, NCT414-4, NCT414-6, NCT416, NCT417, NCT4573
 	
 	NCM 107 is compatible with tubes boards: NCT 3xx, NCT 4xx series and NCT3566, NCT3573. (Discontinued Products)
 	
