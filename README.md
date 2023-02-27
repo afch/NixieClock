@@ -21,9 +21,16 @@ https://youtu.be/DQZWPn0iAHw
 
 3. Compatibility:
 
-	NCM 105 is compatible with NCT 2xx series and NCT566, NCT573 tubes boards. (Discontinued Products)
+        NCM 109 is compatible with tubes boards: NCT 3xx, NCT 4xx series (NCT402, NCT404, NCT408, NCT482, NCT412-4, NCT412-6, NCT414-4, NCT414-6, 
+	NCT416, NCT417, NCT318, NCT818, NCT4573, NCT3566, NCT3566. 
 	
-	NCM 107 is compatible with NCT 3xx, NCT 4xx series and NCT3566, NCT3573 tubes boards.
+	NCM 107 is compatible with tubes boards: NCT 3xx, NCT 4xx series and NCT3566, NCT3573. (Discontinued Products)
+	
+	NCM 105 is compatible with tubes boards: NCT 2xx series and NCT566, NCT573 . (Discontinued Products)
+	
+	
+	
+	
 
 3. eBay stores:
 First (gra_and_afch) - https://www.ebay.com/sch/gra_and_afch/m.html?_nkw=&_armrs=1
