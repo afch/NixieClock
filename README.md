@@ -21,7 +21,7 @@ https://youtu.be/DQZWPn0iAHw
 
 3. Compatibility:
 
-        Board MCU NCM109 is compatible with tubes boards -----
+        Board MCU NCM109 is compatible with tubes boards
 	NCT 3xx, series NCT318 (6 Tubes IN-18), NCT818 (2 Tubes IN-18), NCT3566(6 Tubes Z5660, Z1042), NCT8566 (2 Tubes Z5660, ZM1042)
 	NCT 4xx series NCT402(IN-2), NCT404(IN-4), NCT408(IN-8), NCT482(IN8-2), NCT412-4 Tubes (IN-12), NCT412-6 Tubes (IN-12), 
 	NCT414-4 Tubes (IN-14), NCT414-6 Tubes (IN-14), NCT416 (IN-16), NCT417 (IN-17), NCT4573 (Z573/Z570)
