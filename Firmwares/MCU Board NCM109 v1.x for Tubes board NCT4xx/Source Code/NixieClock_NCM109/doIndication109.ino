@@ -47,12 +47,20 @@ void doIndication()
     else var32&=~UpperDotsMask; 
 
    digitalWrite(LEpin, LOW);    // allow data input (Transparent mode)
-
-   SPI.transfer(var32>>24); //[x][x][x][x][x][x][L1][L0]                - L0, L1 - dots
-   SPI.transfer(var32>>16); //[x][A2][A1][A0][RC9][RC8][RC7][RC6]       - A0-A2 - anodes
-   SPI.transfer(var32>>8);  //[RC5][RC4][RC3][RC2][RC1][RC0][LC9][LC8]  - RC9-RC0 - Right tubes cathodes
-   SPI.transfer(var32);     //[LC7][LC6][LC5][LC4][LC3][LC2][LC1][LC0]  - LC9-LC0 - Left tubes cathodes
-   //Serial.println(var32);
+   
+  if (HV5222)
+  {
+    SPI.transfer(var32); 
+    SPI.transfer(var32>>8); 
+    SPI.transfer(var32>>16); 
+    SPI.transfer(var32>>24);
+  } else
+  {
+    SPI.transfer(var32>>24); //[x][x][x][x][x][x][L1][L0]                - L0, L1 - dots
+    SPI.transfer(var32>>16); //[x][A2][A1][A0][RC9][RC8][RC7][RC6]       - A0-A2 - anodes
+    SPI.transfer(var32>>8);  //[RC5][RC4][RC3][RC2][RC1][RC0][LC9][LC8]  - RC9-RC0 - Right tubes cathodes
+    SPI.transfer(var32);     //[LC7][LC6][LC5][LC4][LC3][LC2][LC1][LC0]  - LC9-LC0 - Left tubes cathodes
+  }
 
    digitalWrite(LEpin, HIGH);     // latching data 
 
@@ -89,5 +97,14 @@ int doEditBlink(int pos)
   return mask;
 }
 
+void SPI_Init()
+{
+  pinMode(RHV5222PIN, INPUT_PULLUP);
+  HV5222=!digitalRead(RHV5222PIN);
+  SPI.begin(); //
 
+  if (HV5222)
+    SPI.beginTransaction(SPISettings(2000000, LSBFIRST, SPI_MODE2));
+    else SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE2));
 
+}
