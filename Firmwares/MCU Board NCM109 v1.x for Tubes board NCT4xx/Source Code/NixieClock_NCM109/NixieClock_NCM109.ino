@@ -1,9 +1,12 @@
-const String FirmwareVersion = "015700";
+const String FirmwareVersion = "015800";
 #define HardwareVersion "MCU109 for 4XX Series."
 //Format                _X.XX__
 //NIXIE CLOCK NCM109 4xx v1.0 by GRA & AFCH (fominalec@gmail.com)
+//1.58 03.02.2023 
+//Fixed: DS18b20 zeros bug
+//1.57 18.08.2022
 //Fixed: RV-3028-C7 init
-//1.56 06.06.2022 
+//1.56 06.06.2022
 //Added: Support RV-3028-C7 RTC
 //1.55 22.09.2020 freed up some memory
 //1.54 15.05.2020
@@ -20,9 +23,9 @@ const String FirmwareVersion = "015700";
 //Fixed: RGB LEDs color reading from EEPROM
 //Fixed: dot mixed up (Driver v1.2 is required)
 //1.4 11.07.2018
-//Added: Temperature reading 
+//Added: Temperature reading
 //1.033 Self test bugfix
-//1.032 
+//1.032
 //Added: time sync with RTC each 60 seconds
 //1.02 17.10.2016
 //Fixed: RGB color controls
@@ -88,13 +91,13 @@ int menuPosition = 0; // 0 - time
 int blinkMask = B00000000; //bit mask for blinkin digits (1 - blink, 0 - constant light)
 int blankMask = B00000000; //bit mask for digits (1 - off, 0 - on)
 
-byte dotPattern = B00000000; //bit mask for separeting dots (1 - on, 0 - off) 
+byte dotPattern = B00000000; //bit mask for separeting dots (1 - on, 0 - off)
 //B10000000 - upper dots
 //B01000000 - lower dots
 
 #define DS1307_ADDRESS  0x68 //DS3231 
 #define RV_3028_ADDRESS 0x52 //RV-3028-C7
-uint8_t RTC_Address=DS1307_ADDRESS;
+uint8_t RTC_Address = DS1307_ADDRESS;
 
 byte zero = 0x00; //workaround for issue #527
 int RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, RTC_day_of_week;
@@ -129,7 +132,7 @@ int RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, RTC_day_o
 //                            names:  Time,              Date,        Alarm,            12/24,         Temperature     hours,   mintues, seconds, DateFormat,  day,    month,   year,    hour,   minute,   second alarm01  hour_format DegreesFormat  TempAdj
 //                                     1                   1            1                 1                 1           1        1        1          1          1        1        1        1        1        1        1        1           1             1
 int parent[SettingsCount] = {      NoParent,            NoParent,    NoParent,         NoParent,         NoParent,      1,       1,       1,         2,         2,       2,       2,       3,       3,       3,       3,       4,          5,            5  };
-int firstChild[SettingsCount] = {TimeHoursIndex, DateFormatIndex, AlarmHourIndex,   hModeValueIndex, DegreesFormatIndex,0,       0,       0,      NoChild,      0,       0,       0,       0,       0,       0,       0,       0,        NoChild,    NoChild};
+int firstChild[SettingsCount] = {TimeHoursIndex, DateFormatIndex, AlarmHourIndex,   hModeValueIndex, DegreesFormatIndex, 0,       0,       0,      NoChild,      0,       0,       0,       0,       0,       0,       0,       0,        NoChild,    NoChild};
 int lastChild[SettingsCount] = { TimeSecondsIndex,  DateYearIndex,   Alarm01,       hModeValueIndex, TempAdjustIndex,   0,       0,       0,      NoChild,      0,       0,       0,       0,       0,       0,       0,       0,        NoChild,    NoChild};
 int value[SettingsCount] = {           0,                  0,           0,                0,                0,          0,       0,       0,   EU_DateFormat,   0,       0,       0,       0,       0,       0,       0,      24,           0,            0 };
 int maxValue[SettingsCount] = {        0,                  0,           0,                0,                0,          23,      59,      59,  US_DateFormat,   31,      12,      99,      23,      59,      59,      1,      24,      FAHRENHEIT,       99 };
@@ -216,22 +219,22 @@ int functionDownButton = 0;
 int functionUpButton = 0;
 bool LEDsLock = false;
 
-//antipoisoning transaction 
-bool modeChangedByUser=false;
-bool transactionInProgress=false; 
+//antipoisoning transaction
+bool modeChangedByUser = false;
+bool transactionInProgress = false;
 #define timeModePeriod 60000
 #define dateModePeriod 5000
-long modesChangePeriod=timeModePeriod;
-  #ifdef tubes8
-  const byte tubesQty=8;
-  #endif
-  #ifdef tubes6
-  const byte tubesQty=6;
-  #endif
-  #ifdef tubes4
-  const byte tubesQty=4;
-  #endif
-//*antipoisoning transaction 
+long modesChangePeriod = timeModePeriod;
+#ifdef tubes8
+const byte tubesQty = 8;
+#endif
+#ifdef tubes6
+const byte tubesQty = 6;
+#endif
+#ifdef tubes4
+const byte tubesQty = 4;
+#endif
+//*antipoisoning transaction
 /*******************************************************************************************************
   Init Programm
 *******************************************************************************************************/
@@ -279,14 +282,8 @@ void setup()
   digitalWrite(HIZpin, LOW);
 
   // SPI setup
-  SPI.begin();
-#ifdef HV5122
-  SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE2)); //for HV5122
-#endif
-#ifdef HV5222
-  SPI.beginTransaction(SPISettings(2000000, LSBFIRST, SPI_MODE2)); //for HV5222
-#endif
-  
+  SPI_Init();
+
 #define SS 25;
   //buttons pins inits
   pinMode(pinSet,  INPUT_PULLUP);
@@ -317,6 +314,10 @@ void setup()
   {
     ds.reset();
     ds.select(addr);
+    ds.write(0x44, 1);        // start conversion, with parasite power on at the end
+
+    ds.reset();
+    ds.select(addr);
     ds.write(0xBE);         // Read Scratchpad
 
     for (byte i = 0; i < 9; i++) // we need 9 bytes
@@ -327,7 +328,7 @@ void setup()
     celsius = (float)raw / 16.0;
     fahrenheit = (float)raw / 16.0 * 1.8 + 32.0;
   } else celsius = 0;
-  
+
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   doTest();
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -336,17 +337,17 @@ void setup()
     setLEDsFromEEPROM();
   }
   getRTCTime();
-  byte prevSeconds=RTC_seconds;
-  unsigned long RTC_ReadingStartTime=millis();
-  RTC_present=true;
-  while(prevSeconds==RTC_seconds)
+  byte prevSeconds = RTC_seconds;
+  unsigned long RTC_ReadingStartTime = millis();
+  RTC_present = true;
+  while (prevSeconds == RTC_seconds)
   {
     getRTCTime();
     //Serial.println(RTC_seconds);
-    if ((millis()-RTC_ReadingStartTime)>3000)
+    if ((millis() - RTC_ReadingStartTime) > 3000)
     {
       Serial.println(F("Warning! RTC DON'T RESPOND!"));
-      RTC_present=false;
+      RTC_present = false;
       break;
     }
   }
@@ -368,12 +369,12 @@ unsigned long prevTime4FireWorks = 0; //time of last RGB changed
 ***************************************************************************************************************/
 void loop() {
 
-  if (((millis()%60000)==0)&&(RTC_present)) //synchronize with RTC every 10 seconds
- {
-  getRTCTime();
-  setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
-  //Serial.println(F("sync"));
- }
+  if (((millis() % 60000) == 0) && (RTC_present)) //synchronize with RTC every 10 seconds
+  {
+    getRTCTime();
+    setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
+    //Serial.println(F("sync"));
+  }
 
   p = playmusic(p);
 
@@ -383,7 +384,7 @@ void loop() {
     prevTime4FireWorks = millis();
   }
 
-  if ((menuPosition==TimeIndex) || (modeChangedByUser==false) ) modesChanger();
+  if ((menuPosition == TimeIndex) || (modeChangedByUser == false) ) modesChanger();
   doIndication();
 
   setButton.Update();
@@ -401,16 +402,16 @@ void loop() {
   }
   if (setButton.clicks > 0) //short click
   {
-    modeChangedByUser=true;
+    modeChangedByUser = true;
     p = 0; //shut off music )))
     tone1.play(1000, 100);
     enteringEditModeTime = millis();
     menuPosition = menuPosition + 1;
     if (menuPosition == LastParent + 1) menuPosition = TimeIndex;
     /*Serial.print(F("menuPosition="));
-    Serial.println(menuPosition);
-    Serial.print(F("value="));
-    Serial.println(value[menuPosition]);*/
+      Serial.println(menuPosition);
+      Serial.print(F("value="));
+      Serial.println(value[menuPosition]);*/
 
     blinkMask = blinkPattern[menuPosition];
     if ((parent[menuPosition - 1] != 0) and (lastChild[parent[menuPosition - 1] - 1] == (menuPosition - 1)))
@@ -427,7 +428,7 @@ void loop() {
       if (menuPosition == DateIndex) setTime(hour(), minute(), second(), value[DateDayIndex], value[DateMonthIndex], value[DateYearIndex]);
 #endif
 #ifdef tubes6
-      if (menuPosition == DateIndex) 
+      if (menuPosition == DateIndex)
       {
         setTime(hour(), minute(), second(), value[DateDayIndex], value[DateMonthIndex], 2000 + value[DateYearIndex]);
         EEPROM.write(DateFormatEEPROMAddress, value[DateFormatIndex]);
@@ -467,14 +468,14 @@ void loop() {
       if (menuPosition == TimeIndex) stringToDisplay = PreZero(hour()) + PreZero(minute()) + PreZero(second()); //temporary enabled 24 hour format while settings
 #endif
     }
-    if (menuPosition == DateIndex) 
+    if (menuPosition == DateIndex)
     {
       Serial.println("DateEdit");
       value[DateDayIndex] =  day();
       value[DateMonthIndex] = month();
       value[DateYearIndex] = year() % 1000;
-      if (value[DateFormatIndex] == EU_DateFormat) stringToDisplay=PreZero(value[DateDayIndex])+PreZero(value[DateMonthIndex])+PreZero(value[DateYearIndex]);
-        else stringToDisplay=PreZero(value[DateMonthIndex])+PreZero(value[DateDayIndex])+PreZero(value[DateYearIndex]);
+      if (value[DateFormatIndex] == EU_DateFormat) stringToDisplay = PreZero(value[DateDayIndex]) + PreZero(value[DateMonthIndex]) + PreZero(value[DateYearIndex]);
+      else stringToDisplay = PreZero(value[DateMonthIndex]) + PreZero(value[DateDayIndex]) + PreZero(value[DateYearIndex]);
       Serial.print("str=");
       Serial.println(stringToDisplay);
     }
@@ -485,7 +486,7 @@ void loop() {
     editMode = !editMode;
     blinkMask = blinkPattern[menuPosition];
     if ((menuPosition != DegreesFormatIndex) &&
-       (menuPosition != DateFormatIndex))
+        (menuPosition != DateFormatIndex))
       value[menuPosition] = extractDigits(blinkMask);
   }
 
@@ -493,7 +494,7 @@ void loop() {
 
   if (upButton.clicks > 0)
   {
-    modeChangedByUser=true;
+    modeChangedByUser = true;
     p = 0; //shut off music )))
     tone1.play(1000, 100);
     incrementValue();
@@ -521,7 +522,7 @@ void loop() {
 
   if (downButton.clicks > 0)
   {
-    modeChangedByUser=true;
+    modeChangedByUser = true;
     p = 0; //shut off music )))
     tone1.play(1000, 100);
     dicrementValue();
@@ -572,12 +573,12 @@ void loop() {
   switch (menuPosition)
   {
     case TimeIndex: //time mode
-      if (!transactionInProgress) stringToDisplay=updateDisplayString();
+      if (!transactionInProgress) stringToDisplay = updateDisplayString();
       doDotBlink();
       checkAlarmTime();
       break;
     case DateIndex: //date mode
-      if (!transactionInProgress) stringToDisplay=updateDateString();
+      if (!transactionInProgress) stringToDisplay = updateDateString();
       dotPattern = B01000000; //turn on lower dots
       checkAlarmTime();
       break;
@@ -623,47 +624,47 @@ void loop() {
       }
 
       if (getTemperature(value[DegreesFormatIndex]) < 0) dotPattern |= B10000000;
-       else dotPattern &= B01111111;
+      else dotPattern &= B01111111;
       break;
     case TempAdjustIndex:
-    stringToDisplay = updateTemperatureString(getTemperature(value[DegreesFormatIndex]));
+      stringToDisplay = updateTemperatureString(getTemperature(value[DegreesFormatIndex]));
       if (value[DegreesFormatIndex] == CELSIUS)
-        {
-          blankMask = B00000111;
-          dotPattern = B10000000;
-         // blinkPattern[TempAdjustIndex]=B00110000;
-          blinkMask=B00000011;
-        }
-        else
-        {
-          blankMask = B10000011;
-          dotPattern = B11000000;
-          //blinkPattern[TempAdjustIndex]=B00000011;
-          blinkMask=B00110000;
-        }
-        if (getTemperature(value[DegreesFormatIndex]) < 0) dotPattern &= B01111111;
-       else dotPattern |= B10000000;
-    break;
-    case DateFormatIndex:
-      if (value[DateFormatIndex] == EU_DateFormat) 
       {
-        stringToDisplay="311299";
-        blinkPattern[DateDayIndex]=B00000011;
-        blinkPattern[DateMonthIndex]=B00001100;
+        blankMask = B00000111;
+        dotPattern = B10000000;
+        // blinkPattern[TempAdjustIndex]=B00110000;
+        blinkMask = B00000011;
       }
-        else 
-        {
-          stringToDisplay="123199";
-          blinkPattern[DateDayIndex]=B00001100;
-          blinkPattern[DateMonthIndex]=B00000011;
-        }
-     break; 
-     case DateDayIndex:
-     case DateMonthIndex:
-     case DateYearIndex:
-      if (value[DateFormatIndex] == EU_DateFormat) stringToDisplay=PreZero(value[DateDayIndex])+PreZero(value[DateMonthIndex])+PreZero(value[DateYearIndex]);
-        else stringToDisplay=PreZero(value[DateMonthIndex])+PreZero(value[DateDayIndex])+PreZero(value[DateYearIndex]);
-     break;
+      else
+      {
+        blankMask = B10000011;
+        dotPattern = B11000000;
+        //blinkPattern[TempAdjustIndex]=B00000011;
+        blinkMask = B00110000;
+      }
+      if (getTemperature(value[DegreesFormatIndex]) < 0) dotPattern &= B01111111;
+      else dotPattern |= B10000000;
+      break;
+    case DateFormatIndex:
+      if (value[DateFormatIndex] == EU_DateFormat)
+      {
+        stringToDisplay = "311299";
+        blinkPattern[DateDayIndex] = B00000011;
+        blinkPattern[DateMonthIndex] = B00001100;
+      }
+      else
+      {
+        stringToDisplay = "123199";
+        blinkPattern[DateDayIndex] = B00001100;
+        blinkPattern[DateMonthIndex] = B00000011;
+      }
+      break;
+    case DateDayIndex:
+    case DateMonthIndex:
+    case DateYearIndex:
+      if (value[DateFormatIndex] == EU_DateFormat) stringToDisplay = PreZero(value[DateDayIndex]) + PreZero(value[DateMonthIndex]) + PreZero(value[DateYearIndex]);
+      else stringToDisplay = PreZero(value[DateMonthIndex]) + PreZero(value[DateDayIndex]) + PreZero(value[DateYearIndex]);
+      break;
   }
 }
 
@@ -700,97 +701,93 @@ void rotateFireWorks()
 
 String updateDisplayString()
 {
-  static int prevS=-1;
+  static int prevS = -1;
 
-  if (second()!=prevS)
+  if (second() != prevS)
   {
-    prevS=second();
+    prevS = second();
     return getTimeNow();
   } else return stringToDisplay;
 }
 
 String getTimeNow()
 {
-  #ifdef tubes8
-    if (value[hModeValueIndex] == 24) return PreZero(hour()) + PreZero(minute()) + PreZero(second()) + (millis() % 1000) / 100 + "0";
-    else return PreZero(hourFormat12()) + PreZero(minute()) + PreZero(second());
+#ifdef tubes8
+  if (value[hModeValueIndex] == 24) return PreZero(hour()) + PreZero(minute()) + PreZero(second()) + (millis() % 1000) / 100 + "0";
+  else return PreZero(hourFormat12()) + PreZero(minute()) + PreZero(second());
 #endif
 #ifdef tubes6
-    if (value[hModeValueIndex] == 24) return PreZero(hour()) + PreZero(minute()) + PreZero(second());
-    else return PreZero(hourFormat12()) + PreZero(minute()) + PreZero(second());
+  if (value[hModeValueIndex] == 24) return PreZero(hour()) + PreZero(minute()) + PreZero(second());
+  else return PreZero(hourFormat12()) + PreZero(minute()) + PreZero(second());
 #endif
 }
 
 void doTest()
 {
   Serial.print(F("Firmware version: "));
-  Serial.println(FirmwareVersion.substring(1,2)+"."+FirmwareVersion.substring(2,5));
+  Serial.println(FirmwareVersion.substring(1, 2) + "." + FirmwareVersion.substring(2, 5));
   Serial.println(HardwareVersion);
   //Serial.println(F("Start Test"));
-  
-  p=song;
+
+  p = song;
   parseSong(p);
-   
-  analogWrite(RedLedPin,255);
+
+  analogWrite(RedLedPin, 255);
   delay(1000);
-  analogWrite(RedLedPin,0);
-  analogWrite(GreenLedPin,255);
+  analogWrite(RedLedPin, 0);
+  analogWrite(GreenLedPin, 255);
   delay(1000);
-  analogWrite(GreenLedPin,0);
-  analogWrite(BlueLedPin,255);
-  delay(1000); 
+  analogWrite(GreenLedPin, 0);
+  analogWrite(BlueLedPin, 255);
+  delay(1000);
   //while(1);
   Serial.print("Free ram = ");
   Serial.println(freeRam());
-  #ifdef tubes8
-  String testStringArray[11]={"00000000","11111111","22222222","33333333","44444444","55555555","66666666","77777777","88888888","99999999",""};
-  testStringArray[10]=FirmwareVersion+"00";
-  #endif
-  #ifdef tubes6
-  String testStringArray[11]={"000000","111111","222222","333333","444444","555555","666666","777777","888888","999999",""};
-  testStringArray[10]=FirmwareVersion;
-  #endif
-  #ifdef tubes4
-  String testStringArray[11]={"0000","1111","2222","3333","4444","5555","6666","7777","8888","9999",""};
-  testStringArray[10]=FirmwareVersion;
-  #endif
+#ifdef tubes8
+  String testStringArray[11] = {"00000000", "11111111", "22222222", "33333333", "44444444", "55555555", "66666666", "77777777", "88888888", "99999999", ""};
+  testStringArray[10] = FirmwareVersion + "00";
+#endif
+#ifdef tubes6
+  String testStringArray[11] = {"000000", "111111", "222222", "333333", "444444", "555555", "666666", "777777", "888888", "999999", ""};
+  testStringArray[10] = FirmwareVersion;
+#endif
   //testStringArray[12]="00"+PreZero(celsius)+"00";
   Serial.print(F("Temp = "));
   Serial.println(celsius);
 
-  int dlay=500;
-  bool test=1;
-  byte strIndex=-1;
-  unsigned long startOfTest=millis()+1000; //disable delaying in first iteration
-  bool digitsLock=false;
+  int dlay = 500;
+  bool test = 1;
+  byte strIndex = -1;
+  unsigned long startOfTest = millis() + 1000; //disable delaying in first iteration
+  bool digitsLock = false;
   while (test)
   {
     //if (strIndex==11) test=0;
-    
-    if (digitalRead(pinDown)==0) digitsLock=true;
-    if (digitalRead(pinUp)==0) digitsLock=false;
 
-    if ((millis()-startOfTest)>dlay) 
-     {
-       startOfTest=millis();
-       if (!digitsLock) strIndex=strIndex+1;
-       if (strIndex==10) dlay=3000;
-       if (strIndex==11) break;
-       stringToDisplay=testStringArray[strIndex];
-       Serial.println(stringToDisplay);
-      }
-    doIndication();  
+    if (digitalRead(pinDown) == 0) digitsLock = true;
+    if (digitalRead(pinUp) == 0) digitsLock = false;
+
+    if ((millis() - startOfTest) > dlay)
+    {
+      startOfTest = millis();
+      if (!digitsLock) strIndex = strIndex + 1;
+      if (strIndex == 10) dlay = 3000;
+      if (strIndex == 11) break;
+      stringToDisplay = testStringArray[strIndex];
+      Serial.println(stringToDisplay);
+    }
+    doIndication();
   }
 
   RTC_Test();
-   
+
   //Serial.println(F("Stop Test"));
 }
 
 void doDotBlink()
 {
-  if (second()%2 == 0) dotPattern = B11000000;
-    else dotPattern = B00000000;
+  if (second() % 2 == 0) dotPattern = B11000000;
+  else dotPattern = B00000000;
 }
 
 void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w)
@@ -1061,7 +1058,7 @@ void incrementValue()
       Serial.print("dotPattern=");
       Serial.println(dotPattern, BIN);
     }
-    if (menuPosition!=DateFormatIndex) injectDigits(blinkMask, value[menuPosition]);
+    if (menuPosition != DateFormatIndex) injectDigits(blinkMask, value[menuPosition]);
   }
 }
 
@@ -1081,7 +1078,7 @@ void dicrementValue()
       Serial.print("dotPattern=");
       Serial.println(dotPattern, BIN);
     }
-    if (menuPosition!=DateFormatIndex) injectDigits(blinkMask, value[menuPosition]);
+    if (menuPosition != DateFormatIndex) injectDigits(blinkMask, value[menuPosition]);
   }
 }
 
@@ -1175,39 +1172,39 @@ String antiPoisoning2(String fromStr, String toStr)
   //byte fromDigits[6];
   static byte toDigits[tubesQty];
   static byte currentDigits[tubesQty];
-  static byte iterationCounter=0;
-  if (!transactionInProgress) 
+  static byte iterationCounter = 0;
+  if (!transactionInProgress)
   {
-    transactionInProgress=true;
-    for (int i=0; i<tubesQty; i++)
+    transactionInProgress = true;
+    for (int i = 0; i < tubesQty; i++)
     {
-      currentDigits[i]=fromStr.substring(i, i+1).toInt();
-      toDigits[i]=toStr.substring(i, i+1).toInt();
+      currentDigits[i] = fromStr.substring(i, i + 1).toInt();
+      toDigits[i] = toStr.substring(i, i + 1).toInt();
     }
   }
-  for (int i=0; i<tubesQty; i++)
+  for (int i = 0; i < tubesQty; i++)
   {
-    if (iterationCounter<10) currentDigits[i]++;
-      else if (currentDigits[i]!=toDigits[i]) currentDigits[i]++;
-    if (currentDigits[i]==10) currentDigits[i]=0;
+    if (iterationCounter < 10) currentDigits[i]++;
+    else if (currentDigits[i] != toDigits[i]) currentDigits[i]++;
+    if (currentDigits[i] == 10) currentDigits[i] = 0;
   }
   iterationCounter++;
-  if (iterationCounter==20)
+  if (iterationCounter == 20)
   {
-    iterationCounter=0;
-    transactionInProgress=false;
+    iterationCounter = 0;
+    transactionInProgress = false;
   }
   String tmpStr;
-  for (int i=0; i<tubesQty; i++)
-    tmpStr+=currentDigits[i];
+  for (int i = 0; i < tubesQty; i++)
+    tmpStr += currentDigits[i];
   return tmpStr;
 }
 
 /*String updateDateString()
-{
+  {
   static unsigned long lastTimeDateUpdate=millis();
   static String DateString=PreZero(day())+PreZero(month())+PreZero(year()%1000);
-  if ((millis()-lastTimeDateUpdate)>1000) 
+  if ((millis()-lastTimeDateUpdate)>1000)
   {
     lastTimeDateUpdate=millis();
     #ifdef tubes8
@@ -1217,27 +1214,27 @@ String antiPoisoning2(String fromStr, String toStr)
       DateString = PreZero(day()) + PreZero(month()) + PreZero(year() % 1000);
     #endif
   }
- return DateString;
-}*/
+  return DateString;
+  }*/
 
 String updateDateString()
 {
-  static unsigned long lastTimeDateUpdate = millis()+1001;
+  static unsigned long lastTimeDateUpdate = millis() + 1001;
   static String DateString = PreZero(day()) + PreZero(month()) + PreZero(year() % 1000);
-  static byte prevoiusDateFormatWas=value[DateFormatIndex];
+  static byte prevoiusDateFormatWas = value[DateFormatIndex];
   if (((millis() - lastTimeDateUpdate) > 1000) || (prevoiusDateFormatWas != value[DateFormatIndex]))
   {
     lastTimeDateUpdate = millis();
-    if (value[DateFormatIndex]==EU_DateFormat) DateString = PreZero(day()) + PreZero(month()) + PreZero(year() % 1000);
-      else DateString = PreZero(month()) + PreZero(day()) + PreZero(year() % 1000);
+    if (value[DateFormatIndex] == EU_DateFormat) DateString = PreZero(day()) + PreZero(month()) + PreZero(year() % 1000);
+    else DateString = PreZero(month()) + PreZero(day()) + PreZero(year() % 1000);
   }
   return DateString;
 }
 
 String updateTemperatureString(float fDegrees)
 {
-  static  unsigned long lastTimeTemperatureString=millis()+1100;
-  static String strTemp ="000000";
+  static  unsigned long lastTimeTemperatureString = millis() + 1100;
+  static String strTemp = "000000";
   if ((millis() - lastTimeTemperatureString) > 1000)
   {
     //Serial.println("F(Updating temp. str.)");
@@ -1247,19 +1244,19 @@ String updateTemperatureString(float fDegrees)
     {
       strTemp = "0" + String(abs(iDegrees)) + "0";
       if (abs(iDegrees) < 1000) strTemp = PreZero(value[TempAdjustIndex]) + String(abs(iDegrees)) + "0";
-      if (abs(iDegrees) < 100) strTemp = "0"+ PreZero(value[TempAdjustIndex]) + String(abs(iDegrees)) + "0";
+      if (abs(iDegrees) < 100) strTemp = "0" + PreZero(value[TempAdjustIndex]) + String(abs(iDegrees)) + "0";
       if (abs(iDegrees) < 10) strTemp = "00" + PreZero(value[TempAdjustIndex]) + String(abs(iDegrees)) + "0";
-    }else
+    } else
     {
       strTemp = "0" + String(abs(iDegrees)) + "0";
-      if (abs(iDegrees) < 1000) strTemp = "00" + String(abs(iDegrees)/10) + PreZero(value[TempAdjustIndex]);
-      if (abs(iDegrees) < 100) strTemp = "000" + String(abs(iDegrees)/10) + PreZero(value[TempAdjustIndex]);
-      if (abs(iDegrees) < 10) strTemp = "0000" + String(abs(iDegrees)/10) + PreZero(value[TempAdjustIndex]);
+      if (abs(iDegrees) < 1000) strTemp = "00" + String(abs(iDegrees) / 10) + PreZero(value[TempAdjustIndex]);
+      if (abs(iDegrees) < 100) strTemp = "000" + String(abs(iDegrees) / 10) + PreZero(value[TempAdjustIndex]);
+      if (abs(iDegrees) < 10) strTemp = "0000" + String(abs(iDegrees) / 10) + PreZero(value[TempAdjustIndex]);
     }
 
-    #ifdef tubes8
-      strTemp= ""+strTemp+"00";
-    #endif
+#ifdef tubes8
+    strTemp = "" + strTemp + "00";
+#endif
     return strTemp;
   }
   return strTemp;
@@ -1268,53 +1265,56 @@ String updateTemperatureString(float fDegrees)
 float getTemperature (boolean bTempFormat)
 {
   static float fDegrees;
-  static int iterator=0;
+  static int iterator = 0;
   static byte TempRawData[2];
 
-  switch (iterator) 
+  static uint32_t startTime=millis();
+
+  switch (iterator)
   {
-    case 0: ds.reset(); break;
-    case 1: ds.write(0xCC); break; //skip ROM command
-    case 2: ds.write(0x44); break; //send make convert to all devices
-    case 3: ds.reset(); break;
-    case 4: ds.write(0xCC); break; //skip ROM command
-    case 5: ds.write(0xBE); break; //send request to all devices
-    case 6: TempRawData[0] = ds.read(); break;
-    case 7: TempRawData[1] = ds.read(); break;
+    case 0: ds.reset(); break; // 1 ms
+    case 1: ds.write(0xCC); break; //
+    case 2: ds.write(0x44); startTime=millis(); break; // 0-1 ms
+    case 3: if (millis()-startTime < 750) return fDegrees; break;
+    case 4: ds.reset(); break; //1 ms
+    case 5: ds.write(0xCC); break; //
+    case 6: ds.write(0xBE); break; //send request to all devices
+    case 7: TempRawData[0] = ds.read(); break;
+    case 8: TempRawData[1] = ds.read(); break;
     default:  break;
   }
-  
- if (iterator == 7)
+
+  if (iterator == 9)
   {
     int16_t raw = (TempRawData[1] << 8) | TempRawData[0];
     if (raw == -1) raw = 0;
     float celsius = (float)raw / 16.0;
-    celsius = celsius + (float)value[TempAdjustIndex]/10;//users adjustment
-  
+    celsius = celsius + (float)value[TempAdjustIndex] / 10; //users adjustment
+
     if (!bTempFormat) fDegrees = celsius * 10;
     else fDegrees = (celsius * 1.8 + 32.0) * 10;
   }
   iterator++;
-  if (iterator==8) iterator=0;
+  if (iterator == 10) iterator = 0;
   return fDegrees;
 }
 
 void RTC_Test()
 {
-  uint8_t errorCounter=0;
-  int8_t DS3231InternalTemperature=0;
+  uint8_t errorCounter = 0;
+  int8_t DS3231InternalTemperature = 0;
   Wire.beginTransmission(RTC_Address);
   Wire.write(0x11);
   Wire.endTransmission();
 
   Wire.requestFrom(RTC_Address, 2);
-  DS3231InternalTemperature=Wire.read();
+  DS3231InternalTemperature = Wire.read();
   //Serial.print(F("DS3231_T="));
   //Serial.println(DS3231InternalTemperature);
-  if ((DS3231InternalTemperature<5) || (DS3231InternalTemperature>60)) 
+  if ((DS3231InternalTemperature < 5) || (DS3231InternalTemperature > 60))
   {
     errorCounter++;
-    RTC_Address=RV_3028_ADDRESS;
+    RTC_Address = RV_3028_ADDRESS;
   }
 
   Wire.beginTransmission(RTC_Address);
@@ -1327,11 +1327,11 @@ void RTC_Test()
   {
     errorCounter++;
   }
-  
+
   if (errorCounter == 2)
   {
     Serial.println(F("Faulty RTC!"));
-    for (int i=0; i<5; i++)
+    for (int i = 0; i < 5; i++)
     {
       tone1.play(1000, 1000);
       delay(2000);
@@ -1352,11 +1352,11 @@ void RTC_Test()
   Wire.beginTransmission(RTC_Address);
   Wire.write(0x27);
   Wire.write(0x00);
-  Wire.endTransmission();//Update EEPROM 
+  Wire.endTransmission();//Update EEPROM
   Wire.beginTransmission(RTC_Address);
   Wire.write(0x27);
   Wire.write(0x11);
-  Wire.endTransmission();//Update EEPROM 
+  Wire.endTransmission();//Update EEPROM
 
   Wire.beginTransmission(RTC_Address);
   Wire.write(0x0F);
