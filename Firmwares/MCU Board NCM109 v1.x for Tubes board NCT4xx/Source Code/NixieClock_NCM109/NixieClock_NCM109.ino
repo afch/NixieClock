@@ -38,9 +38,6 @@ const String FirmwareVersion = "015800";
 #define tubes6
 //#define tubes4
 
-#define HV5122
-#undef HV5222
-
 #include <SPI.h>
 #include <Wire.h>
 #include <ClickButton.h>
