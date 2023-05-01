@@ -1,7 +1,12 @@
-const String FirmwareVersion = "015300";
+ const String FirmwareVersion = "015500";
 #define HardwareVersion "MCU109 for 3XX_1K Series."
 //Format                _X.XX__
 //NIXIE CLOCK NCM109 3xx v1.0 by GRA & AFCH (fominalec@gmail.com)
+//1.55 03.02.2023 
+//Fixed: DS18b20 zeros bug
+//1.54 15.05.2020 
+// The driver has been changed to support BOTH HV5122 and HV 5222 (switching using resistor R5222 Arduino pin No. 8)
+//SPI initialization moved to SPI_Init()
 //1.53 09.04.2020
 //Dots sync with seconds
 //1.88 26.03.2020
@@ -268,13 +273,9 @@ void setup()
 
   // SPI setup
 
-  SPI.begin(); //
-  SPI.setDataMode (SPI_MODE2); // Mode 2 SPI // судя по данным осциллографа нужно использовать этот режим
-  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/128= 125kHz
-  //Serial.println(SPCR, BIN);
-  //SPCR=B00111111;
-  //Serial.println(SPCR, BIN);
-#define SS 25;
+  SPI_Init();
+  
+  #define SS 25;
   //buttons pins inits
   pinMode(pinSet,  INPUT_PULLUP);
   pinMode(pinUp,  INPUT_PULLUP);
@@ -1254,20 +1255,23 @@ float getTemperature (boolean bTempFormat)
   static int iterator=0;
   static byte TempRawData[2];
 
+  static uint32_t startTime=millis();
+
   switch (iterator) 
   {
-    case 0: ds.reset(); break;
-    case 1: ds.write(0xCC); break; //skip ROM command
-    case 2: ds.write(0x44); break; //send make convert to all devices
-    case 3: ds.reset(); break;
-    case 4: ds.write(0xCC); break; //skip ROM command
-    case 5: ds.write(0xBE); break; //send request to all devices
-    case 6: TempRawData[0] = ds.read(); break;
-    case 7: TempRawData[1] = ds.read(); break;
+    case 0: ds.reset(); break; // 1 ms
+    case 1: ds.write(0xCC); break; //
+    case 2: ds.write(0x44); startTime=millis(); break; // 0-1 ms
+    case 3: if (millis()-startTime < 750) return fDegrees; break;
+    case 4: ds.reset(); break; //1 ms
+    case 5: ds.write(0xCC); break; //
+    case 6: ds.write(0xBE); break; //send request to all devices
+    case 7: TempRawData[0] = ds.read(); break;
+    case 8: TempRawData[1] = ds.read(); break;
     default:  break;
   }
   
- if (iterator == 7)
+ if (iterator == 9)
   {
     int16_t raw = (TempRawData[1] << 8) | TempRawData[0];
     if (raw == -1) raw = 0;
@@ -1278,7 +1282,7 @@ float getTemperature (boolean bTempFormat)
     else fDegrees = (celsius * 1.8 + 32.0) * 10;
   }
   iterator++;
-  if (iterator==8) iterator=0;
+  if (iterator==10) iterator=0;
   return fDegrees;
 }
 
