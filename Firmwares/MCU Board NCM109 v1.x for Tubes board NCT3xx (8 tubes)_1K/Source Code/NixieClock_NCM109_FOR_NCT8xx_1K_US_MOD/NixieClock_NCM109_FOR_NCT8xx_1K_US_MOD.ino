@@ -1,7 +1,9 @@
-const String FirmwareVersion = "017000";
+const String FirmwareVersion = "017100";
 //Format                _X.XX__
 #define HardwareVersion "MCU109 for 3XX on 8 tubes US(1K)" 
 //NIXIE CLOCK NCM107, NCM109(for NCT318 v1.1 + NCT818 v1.0) by GRA & AFCH (fominalec@gmail.com)
+//1.71 05.09.2023
+//Fixed: DS18b20 zeros bug
 //1.70 09.05.2022
 //Fixed: year value bug
 //1.69 18.02.2022
@@ -1332,22 +1334,23 @@ float getTemperature (boolean bTempFormat)
   static int iterator=0;
   static byte TempRawData[2];
 
-  if (TempPresent==false) return 0;
-   
+  static uint32_t startTime=millis();
+
   switch (iterator) 
   {
-    case 0: ds.reset(); break;
-    case 1: ds.write(0xCC); break; //skip ROM command
-    case 2: ds.write(0x44); break; //send make convert to all devices
-    case 3: ds.reset(); break;
-    case 4: ds.write(0xCC); break; //skip ROM command
-    case 5: ds.write(0xBE); break; //send request to all devices
-    case 6: TempRawData[0] = ds.read(); break;
-    case 7: TempRawData[1] = ds.read(); break;
+    case 0: ds.reset(); break; // 1 ms
+    case 1: ds.write(0xCC); break; //
+    case 2: ds.write(0x44); startTime=millis(); break; // 0-1 ms
+    case 3: if (millis()-startTime < 750) return fDegrees; break;
+    case 4: ds.reset(); break; //1 ms
+    case 5: ds.write(0xCC); break; //
+    case 6: ds.write(0xBE); break; //send request to all devices
+    case 7: TempRawData[0] = ds.read(); break;
+    case 8: TempRawData[1] = ds.read(); break;
     default:  break;
   }
   
- if (iterator == 7)
+ if (iterator == 9)
   {
     int16_t raw = (TempRawData[1] << 8) | TempRawData[0];
     if (raw == -1) raw = 0;
@@ -1357,7 +1360,7 @@ float getTemperature (boolean bTempFormat)
     else fDegrees = (celsius * 1.8 + 32.0) * 10;
   }
   iterator++;
-  if (iterator==8) iterator=0;
+  if (iterator==10) iterator=0;
   return fDegrees;
 }
 
