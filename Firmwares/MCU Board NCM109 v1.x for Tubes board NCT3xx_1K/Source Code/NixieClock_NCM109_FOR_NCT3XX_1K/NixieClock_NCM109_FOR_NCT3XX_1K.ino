@@ -1,7 +1,9 @@
- const String FirmwareVersion = "015500";
+ const String FirmwareVersion = "015600";
 #define HardwareVersion "MCU109 for 3XX_1K Series."
 //Format                _X.XX__
 //NIXIE CLOCK NCM109 3xx v1.0 by GRA & AFCH (fominalec@gmail.com)
+//1.56 05.09.2023
+//Added: RV-3028-C7 RTC support
 //1.55 03.02.2023 
 //Fixed: DS18b20 zeros bug
 //1.54 15.05.2020 
@@ -88,7 +90,10 @@ byte dotPattern = B00000000; //bit mask for separeting dots (1 - on, 0 - off)
 //B10000000 - upper dots
 //B01000000 - lower dots
 
-#define DS1307_ADDRESS 0x68
+#define DS1307_ADDRESS  0x68 //DS3231 
+#define RV_3028_ADDRESS 0x52 //RV-3028-C7
+uint8_t RTC_Address=DS1307_ADDRESS;
+
 byte zero = 0x00; //workaround for issue #527
 int RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year, RTC_day_of_week;
 
@@ -766,7 +771,7 @@ void doTest()
     doIndication();  
   }
 
-  testDS3231TempSensor();
+  RTC_Test();
    
   Serial.println(F("Stop Test"));
 }
@@ -779,7 +784,7 @@ void doDotBlink()
 
 void setRTCDateTime(byte h, byte m, byte s, byte d, byte mon, byte y, byte w)
 {
-  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.beginTransmission(RTC_Address);
   Wire.write(zero); //stop Oscillator
 
   Wire.write(decToBcd(s));
@@ -808,11 +813,11 @@ byte bcdToDec(byte val)  {
 
 void getRTCTime()
 {
-  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.beginTransmission(RTC_Address);
   Wire.write(zero);
   Wire.endTransmission();
 
-  Wire.requestFrom(DS1307_ADDRESS, 7);
+  Wire.requestFrom(RTC_Address, 7);
 
   RTC_seconds = bcdToDec(Wire.read());
   RTC_minutes = bcdToDec(Wire.read());
@@ -1286,24 +1291,72 @@ float getTemperature (boolean bTempFormat)
   return fDegrees;
 }
 
-void testDS3231TempSensor()
+void RTC_Test()
 {
-  int8_t DS3231InternalTemperature=0;
-  Wire.beginTransmission(DS1307_ADDRESS);
+  uint8_t errorCounter = 0;
+  int8_t DS3231InternalTemperature = 0;
+  Wire.beginTransmission(RTC_Address);
   Wire.write(0x11);
   Wire.endTransmission();
 
-  Wire.requestFrom(DS1307_ADDRESS, 2);
-  DS3231InternalTemperature=Wire.read();
-  Serial.print(F("DS3231_T="));
-  Serial.println(DS3231InternalTemperature);
-  if ((DS3231InternalTemperature<5) || (DS3231InternalTemperature>60)) 
+  Wire.requestFrom(RTC_Address, 2);
+  DS3231InternalTemperature = Wire.read();
+  //Serial.print(F("DS3231_T="));
+  //Serial.println(DS3231InternalTemperature);
+  if ((DS3231InternalTemperature < 5) || (DS3231InternalTemperature > 60))
   {
-    Serial.println(F("Faulty DS3231!"));
-    for (int i=0; i<5; i++)
+    errorCounter++;
+    RTC_Address = RV_3028_ADDRESS;
+  }
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x28);
+  Wire.endTransmission();
+
+  Wire.requestFrom(RTC_Address, 1);
+
+  if (Wire.read() <= 0)
+  {
+    errorCounter++;
+  }
+
+  if (errorCounter == 2)
+  {
+    Serial.println(F("Faulty RTC!"));
+    for (int i = 0; i < 5; i++)
     {
       tone1.play(1000, 1000);
       delay(2000);
     }
+    return;
   }
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x0F);
+  Wire.write(0x08);
+  Wire.endTransmission(); //disable auto refresh
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x37);
+  Wire.write(0x1C);
+  Wire.endTransmission();//Level Switching Mode
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x27);
+  Wire.write(0x00);
+  Wire.endTransmission();//Update EEPROM
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x27);
+  Wire.write(0x11);
+  Wire.endTransmission();//Update EEPROM
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x0F);
+  Wire.write(0x00);
+  Wire.endTransmission(); //enable auto refresh
+
+  Wire.beginTransmission(RTC_Address);
+  Wire.write(0x0E);
+  Wire.write(0x00);
+  Wire.endTransmission(); //reset RTC
 }
