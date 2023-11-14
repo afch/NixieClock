@@ -11,14 +11,41 @@
 #define UpperDotsMask 0x2000000
 #define LowerDotsMask 0x1000000
 
+void TurnOffAllTubes()
+{
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+
+  digitalWrite(LEpin, HIGH); //<<-- это правильно H -> L
+  digitalWrite(LEpin, LOW); // <<-- это правильно H -> L
+}
+
 void doIndication()
 {
   static byte AnodesGroup=1;
   unsigned long AnodesGroupMask;
-  static unsigned long lastTimeInterval1Started;
+  static unsigned long lastTimeInterval1Started = 0;
+  //debug
+  /*static uint32_t lastitmeStrPrnt = 0;
+  if (millis() > lastitmeStrPrnt + 100)
+  {
+    lastitmeStrPrnt = millis();
+    //Serial.println(stringToDisplay);
+    //Serial.println(freeRam());
+    if (stringToDisplay.length() != 6) Serial.println(F("STR LEN < 6 !!!!"));
+  }*/
+  //debug end
   if ((micros()-lastTimeInterval1Started)>5000)
   {
    lastTimeInterval1Started=micros();
+   if (NightMode) {TurnOffAllTubes(); return;}
    unsigned long var32=0;
    unsigned long tmpVar; 
 
