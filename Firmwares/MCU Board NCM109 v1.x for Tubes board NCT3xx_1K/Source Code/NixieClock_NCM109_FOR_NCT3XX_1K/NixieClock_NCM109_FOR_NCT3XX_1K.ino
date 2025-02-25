@@ -1,8 +1,8 @@
- const String FirmwareVersion = "015800";
+ const String FirmwareVersion = "015900";
 #define HardwareVersion "MCU109 for 3XX_1K Series."
 //Format                _X.XX__
 //NIXIE CLOCK NCM109 3xx v1.0 by GRA & AFCH (fominalec@gmail.com)
-//1.58 25.01.2025
+//1.59 25.01.2025
 //Added: Night Mode
 //1.56 05.09.2023
 //Added: RV-3028-C7 RTC support
