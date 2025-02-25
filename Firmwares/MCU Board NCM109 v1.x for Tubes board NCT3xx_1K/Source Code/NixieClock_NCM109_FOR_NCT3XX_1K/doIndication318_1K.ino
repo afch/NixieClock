@@ -15,14 +15,30 @@
 #define TubeON 0xFFFF
 #define TubeOFF 0x3C00
 
+void TurnOffAllTubes()
+{
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+  SPI.transfer(0);
+
+  digitalWrite(LEpin, HIGH); //<<-- это правильно H -> L
+  digitalWrite(LEpin, LOW); // <<-- это правильно H -> L
+}
+
+
 void doIndication()
 {
-  
-  static unsigned long lastTimeInterval1Started;
-  if ((micros()-lastTimeInterval1Started)< 3000 /*fpsLimit*/) return;
+  static unsigned long lastTimeInterval1Started = 0;
+  if ((micros()-lastTimeInterval1Started) < 3000 /*fpsLimit*/) return;
   //if (menuPosition==TimeIndex) doDotBlink();
   lastTimeInterval1Started=micros();
-    
+  if (NightMode) {TurnOffAllTubes(); return;}  
   unsigned long Var32=0;
   
   long digits=stringToDisplay.toInt();
